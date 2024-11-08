@@ -1,0 +1,122 @@
+/* 
+
+:root {
+  --primary-color: #1e90ff;
+  --secondary-color: #28a745;
+  --warning-color: #ff6347;
+  --background-color: #f9f9f9;
+  --text-color: #333;
+  --error-color: #ff4d4f;
+  --white: #ffffff;
+  --box-shadow: 0px 4px 15px rgba(0, 0, 0, 0.1);
+  --border-radius: 10px;
+}
+
+
+
+.dashboard-container {
+  width: 90%;
+  max-width: 1200px;
+  margin: 2rem auto;
+  padding: 2rem;
+  background-color: var(--white);
+  border-radius: var(--border-radius);
+  box-shadow: var(--box-shadow);
+}
+
+h1 {
+  font-size: 2rem;
+  font-weight: 600;
+  color: var(--primary-color);
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+h2 {
+  font-size: 1.5rem;
+  font-weight: 500;
+  color: var(--text-color);
+  margin-bottom: 1rem;
+}
+
+.availability-section {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.availability-button {
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: bold;
+  color: var(--white);
+  background-color: var(--secondary-color);
+  border: none;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  transition: background-color 0.3s ease-in-out;
+}
+
+.availability-button.unavailable {
+  background-color: var(--warning-color);
+}
+
+.availability-button:hover {
+  background-color: darken(var(--secondary-color), 10%);
+}
+
+.availability-button.unavailable:hover {
+  background-color: darken(var(--warning-color), 10%);
+}
+
+.error-text {
+  color: var(--error-color);
+  font-size: 0.9rem;
+  margin-top: 1rem;
+}
+
+.section {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background-color: var(--background-color);
+  border-radius: var(--border-radius);
+  box-shadow: var(--box-shadow);
+}
+
+.section-title {
+  font-size: 1.25rem;
+  font-weight: 500;
+  color: var(--primary-color);
+  margin-bottom: 1rem;
+}
+
+.section-content {
+  padding: 1rem;
+  background-color: var(--white);
+  border-radius: var(--border-radius);
+  box-shadow: var(--box-shadow);
+}
+
+.section + .section {
+  margin-top: 2rem;
+}
+
+@media (max-width: 768px) {
+  .dashboard-container {
+    width: 95%;
+    padding: 1.5rem;
+  }
+
+  .availability-button {
+    width: 100%;
+    padding: 1rem;
+    font-size: 0.9rem;
+  }
+
+  h1 {
+    font-size: 1.75rem;
+  }
+
+  h2 {
+    font-size: 1.25rem;
+  }
+} */
