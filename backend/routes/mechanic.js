@@ -86,29 +86,39 @@ const upload = multer({ storage });
 router.post('/register', 
     upload.single('verificationCertificate'), // Only require one file upload for verification certificate
     async (req, res) => {
-        const { username, email, password, vehicleType } = req.body;
+        const { username, email, password, phoneNumber, address, vehicleType } = req.body;
 
         try {
+            // Check if the mechanic already exists
             let mechanic = await Mechanic.findOne({ email });
             if (mechanic) {
                 return res.status(400).json({ msg: 'Mechanic already exists' });
             }
 
-            if (!req.file) { // Check for the uploaded verification certificate
+            // Ensure verification certificate is uploaded
+            if (!req.file) { 
                 return res.status(400).json({ msg: 'Verification certificate must be uploaded' });
             }
 
+            // Hash the password
+            const hashedPassword = await bcrypt.hash(password, 10);
+
+            // Create new mechanic instance
             mechanic = new Mechanic({
                 username,
                 email,
-                password,
+                password: hashedPassword,
+                phoneNumber,
+                address,
                 vehicleType,
                 verificationCertificate: req.file.path, // Save the path to the uploaded certificate
                 isApproved: false
             });
 
+            // Save mechanic to the database
             await mechanic.save();
 
+            // Generate JWT token
             const payload = {
                 mechanic: {
                     id: mechanic.id,
@@ -122,7 +132,7 @@ router.post('/register',
                 { expiresIn: '1h' },
                 (err, token) => {
                     if (err) throw err;
-                    res.json({ token, role: 'mechanic' });
+                    res.json({ token, role: 'mechanic', mechanicId: mechanic.id });
                 }
             );
         } catch (error) {
@@ -139,39 +149,47 @@ router.post('/register',
 // POST /api/mechanic/login - Login Mechanic
 router.post('/login', async (req, res) => {
     const { email, password } = req.body;
-
+  
     try {
-        let mechanic = await Mechanic.findOne({ email });
-        if (!mechanic) {
-            return res.status(400).json({ msg: 'Invalid Credentials' });
+      let mechanic = await Mechanic.findOne({ email });
+      if (!mechanic) {
+        return res.status(400).json({ msg: 'Invalid Credentials' });
+      }
+  
+      // Check if the mechanic's account is approved
+      if (!mechanic.isApproved) {
+        return res.status(403).json({ msg: 'Your account is not approved yet.' });
+      }
+  
+      // Validate password
+      const isMatch = await bcrypt.compare(password, mechanic.password);
+      if (!isMatch) {
+        return res.status(400).json({ msg: 'Invalid Credentials' });
+      }
+  
+      const payload = {
+        mechanic: {
+          id: mechanic.id,
+          role: 'mechanic',
+        },
+      };
+  
+      // Sign JWT token
+      jwt.sign(
+        payload,
+        process.env.JWT_SECRET,
+        { expiresIn: '1h' },
+        (err, token) => {
+          if (err) throw err;
+          res.json({ token, role: 'mechanic' });
         }
-
-        const isMatch = await bcrypt.compare(password, mechanic.password);
-        if (!isMatch) {
-            return res.status(400).json({ msg: 'Invalid Credentials' });
-        }
-
-        const payload = {
-            mechanic: {
-                id: mechanic.id,
-                role: 'mechanic'
-            }
-        };
-
-        jwt.sign(
-            payload,
-            process.env.JWT_SECRET,
-            { expiresIn: '1h' },
-            (err, token) => {
-                if (err) throw err;
-                res.json({ token, role: 'mechanic' });
-            }
-        );
+      );
     } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Server error');
+      console.error('Error during login:', err);
+      res.status(500).send('Server error');
     }
-});
+  });
+  
 
 // Get all users (mechanics)
 router.get('/mechanics', async (req, res) => {

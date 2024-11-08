@@ -148,17 +148,21 @@ export default function MechanicDashboard() {
     }
   };
 
-<<<<<<< HEAD
-=======
-  
->>>>>>> cf94cd5 (db)
-
   const updateMechanicStatus = async (latitude, longitude, isAvailable) => {
     try {
         const token = localStorage.getItem('token'); // Retrieve the token
-        const mechanicId = "672790273a1a29b580a80f61"; // Replace with dynamic mechanicId as needed
+      const mechanicId = localStorage.getItem('mechanicId'); // Ensure mechanic ID is saved in local storage
 
-        await axios.post(
+      if (!token || !mechanicId) {
+        throw new Error('Authorization token or mechanic ID is missing');
+      }
+
+      const liveLocation = (latitude && longitude) ? {
+        coordinates: [latitude, longitude],
+        address: "Dynamic Address or Placeholder" // Optional dynamic address
+      } : null;
+
+      const response = await axios.post(
             'http://localhost:5000/api/mechanic/update-availability',
             {
                 mechanicId,

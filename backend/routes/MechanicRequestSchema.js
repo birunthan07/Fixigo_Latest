@@ -3,7 +3,7 @@
 const express = require('express');
 const router = express.Router();
 const MechanicRequest = require('../models/MechanicRequestmodel.js');
-const authMiddleware = require('/home/uki-jaffna/Documents/mechanic/backend/middleware/authMiddleware.js');
+const authMiddleware = require('../middleware/authMiddleware.js');
 const { io } = require('../server.js');
 
 
@@ -71,7 +71,6 @@ router.post('/create', authMiddleware, validateServiceRequest, async (req, res) 
           status: 'pending'
       });
 
-<<<<<<< HEAD
     const newMechanicRequest = new MechanicRequest({
       location: {
         address: location,
@@ -80,10 +79,8 @@ router.post('/create', authMiddleware, validateServiceRequest, async (req, res) 
       serviceType,
       userId: req.user._id,
     });
-=======
       await newServiceRequest.save();
       console.log('Service request saved:', newServiceRequest._id);
->>>>>>> cf94cd5 (db)
 
       // Find nearby available mechanics
       const nearbyMechanics = await Mechanic.find({

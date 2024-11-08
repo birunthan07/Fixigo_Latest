@@ -20,13 +20,8 @@ function ManageMechanics() {
         throw new Error('No token found, please log in.');
       }
 
-<<<<<<< HEAD
-      const response = await axios.get('http://localhost:8000/api/admin/mechanics', {
-        headers: { Authorization: `Bearer ${token}` },
-=======
       const response = await axios.get('http://localhost:5000/api/admin/mechanics', {
         headers: { Authorization: `Bearer ${token}` }
->>>>>>> cf94cd5 (db)
       });
       setMechanics(response.data);
     } catch (err) {
@@ -37,6 +32,7 @@ function ManageMechanics() {
     }
   };
 
+  // Approve or reject a mechanic
   const handleAction = async (action, mechanicId) => {
     try {
       setError(null);
@@ -45,7 +41,7 @@ function ManageMechanics() {
       if (!token) {
         throw new Error('No token found, please log in.');
       }
-  
+
       let response;
       if (action === 'delete') {
         response = await axios.delete(
@@ -53,19 +49,13 @@ function ManageMechanics() {
           { headers: { Authorization: `Bearer ${token}` } }
         );
       } else {
-        // Make sure action is either 'approve' or 'reject'
         response = await axios.patch(
-<<<<<<< HEAD
-          `http://localhost:8000/api/admin/mechanics/${mechanicId}/${action}`,
-          {}, // Assuming no body is needed
-=======
           `http://localhost:5000/api/admin/mechanics/${mechanicId}/${action}`,
           {},
->>>>>>> cf94cd5 (db)
           { headers: { Authorization: `Bearer ${token}` } }
         );
       }
-  
+
       setSuccessMessage(response.data.msg);
       fetchMechanics(); // Refresh mechanic list
     } catch (err) {
@@ -73,7 +63,7 @@ function ManageMechanics() {
       setError(err.response?.data?.msg || err.message || `Error performing ${action}`);
     }
   };
-  
+
   if (loading) return <p>Loading mechanics...</p>;
 
   return (

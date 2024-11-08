@@ -44,7 +44,10 @@ export default function MechanicLoginForm() {
       setServerError('');
       navigate('/mechanic-dashboard');
     } catch (error) {
-      setServerError(error.response?.status === 403 ? 'Your account is not approved yet.' : 'An unexpected error occurred.');
+      const status = error.response?.status;
+      setServerError(
+        status === 403 ? 'Your account is not approved yet.' : 'An unexpected error occurred.'
+      );
       setSuccessMessage('');
     }
   };

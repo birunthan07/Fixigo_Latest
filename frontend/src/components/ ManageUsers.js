@@ -35,19 +35,13 @@ function ManageUsers() {
             const token = localStorage.getItem('token');
             if (!token) throw new Error('No token found, please log in.');
 
-<<<<<<< HEAD
-            const endpoint = `http://localhost:8000/api/admin/users/${id}/${action}`;
-            console.log(`Attempting to ${action} for ID: ${id} at endpoint: ${endpoint}`);
-
-=======
             const endpoint = `http://localhost:5000/api/admin/users/${id}/${action}`;
             console.log(`Attempting to ${action} for user ID: ${id} at endpoint: ${endpoint}`);
     
->>>>>>> cf94cd5 (db)
             const response = await axios.patch(endpoint, {}, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-
+    
             setSuccessMessage(response.data.msg);
             fetchUsers(); // Refresh user list
         } catch (err) {
@@ -55,11 +49,7 @@ function ManageUsers() {
             setError(err.response?.data?.msg || err.message || `Error performing ${action}`);
         }
     };
-<<<<<<< HEAD
-
-=======
     
->>>>>>> cf94cd5 (db)
     if (loading) return <p>Loading...</p>;
 
     return (
