@@ -83,8 +83,9 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 // POST /api/mechanic/register - Register Mechanic with document uploads
+
 router.post('/register', 
-    upload.single('verificationCertificate'), // Only require one file upload for verification certificate
+    upload.single('verificationCertificate'), // Require one file upload for verification certificate
     async (req, res) => {
         const { username, email, password, phoneNumber, address, vehicleType } = req.body;
 
@@ -112,6 +113,10 @@ router.post('/register',
                 address,
                 vehicleType,
                 verificationCertificate: req.file.path, // Save the path to the uploaded certificate
+                liveLocation: {
+                    type: "Point",
+                    coordinates: [0, 0] // Initialize with default coordinates
+                },
                 isApproved: false
             });
 
@@ -149,47 +154,51 @@ router.post('/register',
 // POST /api/mechanic/login - Login Mechanic
 router.post('/login', async (req, res) => {
     const { email, password } = req.body;
-  
+
     try {
-      let mechanic = await Mechanic.findOne({ email });
-      if (!mechanic) {
-        return res.status(400).json({ msg: 'Invalid Credentials' });
-      }
-  
-      // Check if the mechanic's account is approved
-      if (!mechanic.isApproved) {
-        return res.status(403).json({ msg: 'Your account is not approved yet.' });
-      }
-  
-      // Validate password
-      const isMatch = await bcrypt.compare(password, mechanic.password);
-      if (!isMatch) {
-        return res.status(400).json({ msg: 'Invalid Credentials' });
-      }
-  
-      const payload = {
-        mechanic: {
-          id: mechanic.id,
-          role: 'mechanic',
-        },
-      };
-  
-      // Sign JWT token
-      jwt.sign(
-        payload,
-        process.env.JWT_SECRET,
-        { expiresIn: '1h' },
-        (err, token) => {
-          if (err) throw err;
-          res.json({ token, role: 'mechanic' });
+        // Attempt to find the mechanic by email
+        let mechanic = await Mechanic.findOne({ email });
+        if (!mechanic) {
+            console.log("Mechanic not found with email:", email); // Logging for debugging
+            return res.status(400).json({ msg: 'Invalid Credentials' });
         }
-      );
+
+        // Check if the mechanic's account is approved
+        if (!mechanic.isApproved) {
+            console.log("Mechanic account is not approved"); // Logging for debugging
+            return res.status(403).json({ msg: 'Your account is not approved yet.' });
+        }
+
+        // Validate password
+        const isMatch = await bcrypt.compare(password, mechanic.password);
+        if (!isMatch) {
+            console.log("Password does not match"); // Logging for debugging
+            return res.status(400).json({ msg: 'Invalid Credentials' });
+        }
+
+        const payload = {
+            mechanic: {
+                id: mechanic.id,
+                role: 'mechanic',
+            },
+        };
+
+        // Sign JWT token
+        jwt.sign(
+            payload,
+            process.env.JWT_SECRET,
+            { expiresIn: '1h' },
+            (err, token) => {
+                if (err) throw err;
+                res.json({ mechanicId: mechanic.id, token, role: 'mechanic' });
+            }
+        );
     } catch (err) {
-      console.error('Error during login:', err);
-      res.status(500).send('Server error');
+        console.error('Error during login:', err);
+        res.status(500).send('Server error');
     }
-  });
-  
+});
+
 
 // Get all users (mechanics)
 router.get('/mechanics', async (req, res) => {
@@ -202,14 +211,21 @@ router.get('/mechanics', async (req, res) => {
     }
 });
 
-// Get a single user by ID
+
+// Get mechanic by ID
 router.get('/mechanics/:id', async (req, res) => {
     try {
-        const user = await Mechanic.findById(req.params.id); // Use Mechanic model to find by ID
-        if (!user) {
+        // Validate ObjectId format
+        if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+            return res.status(400).json({ msg: 'Invalid user ID format' });
+        }
+
+        // Fetch mechanic by ID
+        const mechanic = await Mechanic.findById(req.params.id);
+        if (!mechanic) {
             return res.status(404).json({ msg: 'User not found' });
         }
-        res.status(200).json(user); // Return the user data
+        res.status(200).json(mechanic);
     } catch (error) {
         console.error('Error fetching user:', error);
         res.status(500).json({ message: 'Error retrieving user. Please try again.' });
@@ -252,50 +268,24 @@ router.put('/mechanics/:id/block', async (req, res) => {
 });
 
 
-
-// GET /api/mechanics/search?lat={latitude}&lng={longitude}&vehicleType={type}
-router.get('/search', async (req, res) => {
-    try {
-        const { lat, lng, vehicleType } = req.query;
-        
-        // Validate required parameters
-        if (!lat || !lng || !vehicleType) {
-            return res.status(400).json({ error: 'Missing required query parameters' });
-        }
-
-        // Fetch mechanics based on location and vehicle type
-        const mechanics = await Mechanic.find({
-            location: {
-                $near: {
-                    $geometry: { type: "Point", coordinates: [parseFloat(lng), parseFloat(lat)] },
-                    $maxDistance: 10000 // distance in meters (e.g., 10 km)
-                }
-            },
-            vehicleTypesServiced: vehicleType // assuming the mechanic model has this field
-        });
-
-        res.json(mechanics);
-    } catch (error) {
-        console.error('Error fetching mechanics:', error);
-        res.status(500).json({ error: 'Server error' });
-    }
-});
-// Server route should be fine as it is
+// Backend route - only updating availability and live location as requested
 router.post('/update-availability', async (req, res) => {
     const { mechanicId, isAvailable, liveLocation } = req.body;
 
     try {
+        // Prepare the update data with isAvailable and optionally liveLocation
         const updateData = { isAvailable };
 
         if (isAvailable && liveLocation) {
             updateData.liveLocation = {
-                address: liveLocation.address,
-                coordinates: liveLocation.coordinates
+                type: "Point", // GeoJSON type
+                coordinates: liveLocation.coordinates // Expected format: [longitude, latitude]
             };
         } else {
             updateData.liveLocation = null;
         }
 
+        // Update mechanic's status and location
         const updatedMechanic = await Mechanic.findByIdAndUpdate(
             mechanicId,
             updateData,
@@ -379,4 +369,32 @@ router.get('/service-requests', async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 });
+
+router.get('/search', async (req, res) => {
+    const { lat, lng, vehicleType } = req.query;
+
+    if (!lat || !lng || !vehicleType) {
+        return res.status(400).json({ message: "Missing required query parameters: lat, lng, vehicleType." });
+    }
+
+    try {
+        const mechanics = await Mechanic.aggregate([
+            {
+                $geoNear: {
+                    near: { type: "Point", coordinates: [parseFloat(lng), parseFloat(lat)] },
+                    distanceField: "distance",
+                    maxDistance: 5000,
+                    query: { vehicleType: vehicleType },
+                    spherical: true
+                }
+            }
+        ]);
+        res.json({ mechanics });
+    } catch (error) {
+        console.error("Error fetching mechanics:", error);
+        res.status(500).json({ message: "Error fetching mechanics." });
+    }
+});
+
+  
 module.exports = router;  

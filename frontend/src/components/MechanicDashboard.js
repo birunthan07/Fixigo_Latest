@@ -147,29 +147,25 @@ export default function MechanicDashboard() {
       setLocationError('Geolocation is not supported by this browser.');
     }
   };
-
   const updateMechanicStatus = async (latitude, longitude, isAvailable) => {
     try {
-        const token = localStorage.getItem('token'); // Retrieve the token
-      const mechanicId = localStorage.getItem('mechanicId'); // Ensure mechanic ID is saved in local storage
+        const token = localStorage.getItem('token');
+        const mechanicId = localStorage.getItem('mechanicId');
 
-      if (!token || !mechanicId) {
-        throw new Error('Authorization token or mechanic ID is missing');
-      }
+        if (!token || !mechanicId) {
+            throw new Error('Authorization token or mechanic ID is missing');
+        }
 
-      const liveLocation = (latitude && longitude) ? {
-        coordinates: [latitude, longitude],
-        address: "Dynamic Address or Placeholder" // Optional dynamic address
-      } : null;
+        const liveLocation = (latitude !== undefined && longitude !== undefined) ? {
+            coordinates: [latitude, longitude] // Format for GeoJSON
+        } : null;
 
-      const response = await axios.post(
+        const response = await axios.post(
             'http://localhost:5000/api/mechanic/update-availability',
             {
                 mechanicId,
                 isAvailable,
-                liveLocation: latitude && longitude ? {
-                    coordinates: [latitude, longitude]
-                } : null
+                liveLocation
             },
             {
                 headers: {
@@ -177,11 +173,13 @@ export default function MechanicDashboard() {
                 },
             }
         );
+
+        console.log('Mechanic status updated:', response.data);
+        return response.data;
     } catch (error) {
         console.error('Error updating mechanic status:', error);
     }
 };
-
 
   
 
@@ -312,7 +310,6 @@ export default function MechanicDashboard() {
           <FaClipboardList style={styles.sectionIcon} /> Mechanic Requests
         </h2>
         <MechanicRequests />
-        <button>mechanic request</button>
       </div>
       
       <div style={styles.section}>

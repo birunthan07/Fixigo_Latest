@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { Link, useNavigate } from 'react-router-dom';
 import { jwtDecode } from 'jwt-decode';
+ // Corrected import for jwt-decode
 import { FaEnvelope, FaLock, FaSignInAlt } from 'react-icons/fa';
 
 export default function LoginForm() {

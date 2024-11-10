@@ -3,54 +3,77 @@ import axios from 'axios';
 import { Link, useNavigate } from 'react-router-dom';
 import { FaEnvelope, FaLock, FaWrench, FaSignInAlt } from 'react-icons/fa';
 
+
 export default function MechanicLoginForm() {
-  const [formData, setFormData] = useState({
-    email: '',
-    password: ''
-  });
-  const [errors, setErrors] = useState({});
-  const [serverError, setServerError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
-  const navigate = useNavigate();
-
-  const validateForm = () => {
-    const newErrors = {};
-    if (!formData.email.trim()) newErrors.email = 'Email is required';
-    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Email is invalid';
-    if (!formData.password) newErrors.password = 'Password is required';
-    return newErrors;
-  };
-
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
+    const [formData, setFormData] = useState({
+        email: '',
+        password: ''
     });
-  };
+    const [errors, setErrors] = useState({});
+    const [serverError, setServerError] = useState('');
+    const [successMessage, setSuccessMessage] = useState('');
+    const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    const validationErrors = validateForm();
-    if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors);
-      return;
-    }
+    const validateForm = () => {
+        const newErrors = {};
+        if (!formData.email.trim()) newErrors.email = 'Email is required';
+        else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Email is invalid';
+        if (!formData.password) newErrors.password = 'Password is required';
+        return newErrors;
+    };
 
-    try {
-      const response = await axios.post('http://localhost:5000/api/mechanic/login', formData);
-      setSuccessMessage('Login successful!');
-      setFormData({ email: '', password: '' });
-      setErrors({});
-      setServerError('');
-      navigate('/mechanic-dashboard');
-    } catch (error) {
-      const status = error.response?.status;
-      setServerError(
-        status === 403 ? 'Your account is not approved yet.' : 'An unexpected error occurred.'
-      );
-      setSuccessMessage('');
-    }
-  };
+    const handleChange = (e) => {
+        setFormData({
+            ...formData,
+            [e.target.name]: e.target.value,
+        });
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        const validationErrors = validateForm();
+        
+        if (Object.keys(validationErrors).length > 0) {
+            setErrors(validationErrors);
+            return;
+        }
+
+        try {
+            // Sending login request to the backend
+            const response = await axios.post('http://localhost:5000/api/mechanic/login', formData);
+
+            // Extract mechanicId and token from response
+            const { mechanicId, token } = response.data;
+
+            // Check if mechanicId and token are available in the response
+            if (mechanicId && token) {
+                // Store mechanicId and token in localStorage
+                localStorage.setItem('mechanicId', mechanicId);
+                localStorage.setItem('token', token);
+                
+                setSuccessMessage('Login successful!');
+                setFormData({ email: '', password: '' });
+                setErrors({});
+                setServerError('');
+
+                // Redirect to the mechanic dashboard
+                navigate('/mechanic-dashboard');
+            } else {
+                setServerError('Missing mechanicId or token in response');
+                setSuccessMessage('');
+            }
+        } catch (error) {
+            // Handle different error scenarios
+            if (error.response?.status === 403) {
+                setServerError('Your account is not approved yet.');
+            } else if (error.response?.status === 400) {
+                setServerError('Invalid Credentials');
+            } else {
+                setServerError('An unexpected error occurred.');
+            }
+            setSuccessMessage('');
+        }
+    };
 
   const styles = {
     container: {

@@ -1,3 +1,5 @@
+
+
 // const express = require('express');
 // const mongoose = require('mongoose');
 // const cors = require('cors');
@@ -115,7 +117,6 @@
 //   console.log(`Server is running on port ${PORT}`);
 // });
 
-
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -124,8 +125,8 @@ const { Server } = require('socket.io');
 const http = require('http');
 const nodemailer = require('nodemailer');
 const bodyParser = require('body-parser');
-const morgan = require('morgan'); // For logging
-const helmet = require('helmet'); // For enhanced security
+const morgan = require('morgan');
+const helmet = require('helmet');
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -134,24 +135,23 @@ const adminRoutes = require('./routes/admin');
 const mechanicRequestRouter = require('./routes/MechanicRequestSchema');
 const paymentRoutes = require('./routes/payment');
 const packageRoutes = require('./routes/packageRoutes');
+const contactRoutes = require('./routes/contact'); // Import the Contact route
+const Mechanic = require('./models/ mechanicmodel.js');  // Import the Mechanic model
 
 dotenv.config();
 
-// Create Express app
 const app = express();
 
-// Middleware
-app.use(helmet()); // Secure HTTP headers
+app.use(helmet());
 app.use(cors({
   origin: ['http://localhost:3000', 'http://localhost:3001'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
   allowedHeaders: 'Content-Type,Authorization',
 }));
-app.use(morgan('dev')); // Logging for dev environment
+app.use(morgan('dev'));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// Set port
 const PORT = process.env.PORT || 5000;
 
 // Database connection with retry logic
@@ -160,10 +160,21 @@ const connectWithRetry = () => {
     useNewUrlParser: true,
     useUnifiedTopology: true,
   })
-  .then(() => console.log('Connected to MongoDB'))
+  .then(() => {
+    console.log('Connected to MongoDB');
+
+    // Create the 2dsphere index for geospatial queries after successful DB connection
+    Mechanic.createIndexes()
+      .then(() => {
+        console.log('2dsphere index created successfully');
+      })
+      .catch((err) => {
+        console.error('Error creating index:', err);
+      });
+  })
   .catch((err) => {
     console.error('Could not connect to MongoDB', err);
-    setTimeout(connectWithRetry, 5000); // Retry every 5 seconds
+    setTimeout(connectWithRetry, 5000);
   });
 };
 connectWithRetry();
@@ -175,6 +186,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/service-request', mechanicRequestRouter);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/packages', packageRoutes);
+app.use('/api/contact', contactRoutes); // Register the Contact route
 
 // Centralized error handling middleware
 app.use((err, req, res, next) => {
@@ -191,7 +203,7 @@ const io = new Server(server, {
   },
 });
 
-// Nodemailer setup with improved error handling
+// Nodemailer setup
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
@@ -200,10 +212,8 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// Email send endpoint
 app.post('/api/send-email', async (req, res) => {
   const { to, subject, text } = req.body;
-
   try {
     const info = await transporter.sendMail({
       from: process.env.EMAIL_USER,
@@ -222,7 +232,6 @@ app.post('/api/send-email', async (req, res) => {
 io.on('connection', (socket) => {
   console.log('New client connected');
   socket.emit('message', 'Welcome to the mechanic finder app!');
-
   socket.on('disconnect', () => {
     console.log('Client disconnected');
   });

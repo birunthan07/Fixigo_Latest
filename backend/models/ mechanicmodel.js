@@ -1,255 +1,140 @@
-
-
 // const mongoose = require('mongoose');
 // const bcrypt = require('bcryptjs');
 
 // const MechanicSchema = new mongoose.Schema({
-//     username: {
-//         type: String,
-//         unique: true,
-//         required: [true, 'Username is required'],
-//         trim: true,
+//   username: { type: String, unique: true, required: true, trim: true },
+//   email: { type: String, unique: true, required: true, lowercase: true, match: [/.+\@.+\..+/, 'Please provide a valid email address'] },
+//   password: { type: String, required: true },
+//   phoneNumber: { type: String, required: true, trim: true },
+//   address: { type: String, required: true },
+//   verificationCertificate: { type: String, required: true },
+//   vehicleType: { type: String, required: true, enum: ['car', 'motorbike', 'bicycle', 'truck', 'other'] },
+//   profilePicture: { type: String, default: null },
+//   isApproved: { type: Boolean, default: false },
+//   role: { type: String, default: 'mechanic' },
+//   isAvailable: { type: Boolean, default: false },
+//   liveLocation: {
+//     type: {
+//       type: String,
+//       enum: ['Point'],
+//       required: true,
+//       default: 'Point'
 //     },
-//     email: {
-//         type: String,
-//         unique: true,
-//         required: [true, 'Email is required'],
-//         lowercase: true,
-//         match: [/.+\@.+\..+/, 'Please provide a valid email address'],
-//     },
-//     password: {
-//         type: String,
-//         required: [true, 'Password is required'],
-//     },
-//     verificationCertificate: {
-//         type: String,
-//         required: [true, 'Verification certificate is required'],
-//     },
-//     isApproved: {
-//         type: Boolean,
-//         default: false,
-//     },
-//     role: {
-//         type: String,
-//         default: 'mechanic',  // Default role as 'mechanic'
-//     },
-//     phoneNumber: {
-//         type: String,
-//         required: true,
-//         trim: true,
-//     },
-//     address: {
-//         type: String,
-//         required: true,
-//     },
-//     vehicleType: {
-//         type: String,
-//         required: true,
-//         enum: ['bike', 'car', 'truck', 'bus'], // Adjust based on allowed types
-//     },
-//     profilePicture: {
-//         type: String, // Path to uploaded file
-//         default: null,
-//     },
- 
-//     isAvailable: {
-//         type: Boolean,
-//         default: false,
-//     },
-//     available: {
-//         type: Boolean,
-//         default: false,
-//     },
-//     liveLocation: {
-//         type: {
-//             coordinates: {
-//                 type: [Number], // Store latitude and longitude as an array
-//                 required: false
-//             }
-//         },
-//         default: { coordinates: [0, 0] } // Default location
-//     },
-//     createdAt: {
-//         type: Date,
-//         default: Date.now
+//     coordinates: {
+//       type: [Number],
+//       required: true,
+//       default: [0, 0]
 //     }
+//   },
+//   dateCreated: { type: Date, default: Date.now }
 // });
 
-// // Hash password before saving
+// // Add the 2dsphere index for geospatial queries
+// MechanicSchema.index({ liveLocation: '2dsphere' });
+
 // MechanicSchema.pre('save', async function (next) {
-//     if (!this.isModified('password')) {
-//         return next();
-//     }
-//     try {
-//         const salt = await bcrypt.genSalt(10);
-//         this.password = await bcrypt.hash(this.password, salt);
-//         next();
-//     } catch (err) {
-//         next(err);
-//     }
+//   if (!this.isModified('password')) return next();
+//   try {
+//     const salt = await bcrypt.genSalt(10);
+//     this.password = await bcrypt.hash(this.password, salt);
+//     next();
+//   } catch (err) {
+//     next(err);
+//   }
 // });
 
 // module.exports = mongoose.model('Mechanic', MechanicSchema);
+
 
 
 // const mongoose = require('mongoose');
 // const bcrypt = require('bcryptjs');
 
 // const MechanicSchema = new mongoose.Schema({
-//     username: {
-//         type: String,
-//         unique: true,
-//         required: [true, 'Username is required'],
-//         trim: true,
+//   username: { type: String, unique: true, required: true, trim: true },
+//   email: { type: String, unique: true, required: true, lowercase: true, match: [/.+\@.+\..+/, 'Please provide a valid email address'] },
+//   password: { type: String, required: true },
+//   phoneNumber: { type: String, required: true, trim: true },
+//   address: { type: String, required: true },
+//   verificationCertificate: { type: String, required: true },
+//   vehicleType: { type: String, required: true, enum: ['car', 'motorbike', 'bicycle', 'truck', 'other'] },
+//   profilePicture: { type: String, default: null },
+//   isApproved: { type: Boolean, default: false },
+//   role: { type: String, default: 'mechanic' },
+//   isAvailable: { type: Boolean, default: false },
+//   liveLocation: {
+//     type: {
+//       type: String,
+//       enum: ['Point'],
+//       default: 'Point'
 //     },
-//     email: {
-//         type: String,
-//         unique: true,
-//         required: [true, 'Email is required'],
-//         lowercase: true,
-//         match: [/.+\@.+\..+/, 'Please provide a valid email address'],
-//     },
-//     password: {
-//         type: String,
-//         required: [true, 'Password is required'],
-//     },
-//     phoneNumber: {
-//         type: String,
-//         required: [true, 'Phone number is required'],
-//         trim: true,
-//     },
-//     address: {
-//         type: String,
-//         required: [true, 'Address is required'],
-//     },
-//     verificationCertificate: {
-//         type: String,
-//         required: [true, 'Verification certificate is required'],
-//     },
-//     vehicleType: {
-//         type: String,
-//         required: [true, 'Vehicle type is required'],
-//         enum: ['car', 'motorbike', 'bicycle', 'truck', 'other'], // Updated to match dropdown options
-//     },
-//     profilePicture: {
-//         type: String, // Path to the uploaded profile picture
-//         default: null,
-//     },
-//     isApproved: {
-//         type: Boolean,
-//         default: false,
-//     },
-//     role: {
-//         type: String,
-//         default: 'mechanic',  // Default role as 'mechanic'
-//     },
-//     isAvailable: {
-//         type: Boolean,
-//         default: false,
-//     },
-//     liveLocation: {
-//         type: {
-//             latitude: Number,
-//             longitude: Number,
-//         },
-//         default: null,
-//     },
-//     dateCreated: {
-//         type: Date,
-//         default: Date.now,
-//     },
+//     coordinates: {
+//       type: [Number],
+//       default: [0, 0] // Default coordinates if not set
+//     }
+//   },
+//   dateCreated: { type: Date, default: Date.now }
 // });
 
-// // Hash password before saving
-// MechanicSchema.pre('save', async function(next) {
-//     if (!this.isModified('password')) {
-//         return next();
-//     }
-//     try {
-//         const salt = await bcrypt.genSalt(10);
-//         this.password = await bcrypt.hash(this.password, salt);
-//         next();
-//     } catch (err) {
-//         next(err);
-//     }
+// MechanicSchema.pre('save', async function (next) {
+//   if (!this.isModified('password')) return next();
+//   try {
+//     const salt = await bcrypt.genSalt(10);
+//     this.password = await bcrypt.hash(this.password, salt);
+//     next();
+//   } catch (err) {
+//     next(err);
+//   }
 // });
 
 // module.exports = mongoose.model('Mechanic', MechanicSchema);
-
 
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
 const MechanicSchema = new mongoose.Schema({
-  username: {
-    type: String,
-    unique: true,
-    required: [true, 'Username is required'],
-    trim: true,
-  },
+  username: { type: String, unique: true, required: true, trim: true },
   email: {
     type: String,
     unique: true,
-    required: [true, 'Email is required'],
+    required: true,
     lowercase: true,
     match: [/.+\@.+\..+/, 'Please provide a valid email address'],
   },
-  password: {
-    type: String,
-    required: [true, 'Password is required'],
-  },
-  phoneNumber: {
-    type: String,
-    required: [true, 'Phone number is required'],
-    trim: true,
-  },
-  address: {
-    type: String,
-    required: [true, 'Address is required'],
-  },
-  verificationCertificate: {
-    type: String,
-    required: [true, 'Verification certificate is required'],
-  },
+  password: { type: String, required: true },
+  phoneNumber: { type: String, required: true, trim: true },
+  address: { type: String, required: true },
+  verificationCertificate: { type: String, required: true },
   vehicleType: {
     type: String,
-    required: [true, 'Vehicle type is required'],
+    required: true,
     enum: ['car', 'motorbike', 'bicycle', 'truck', 'other'],
   },
-  profilePicture: {
-    type: String,
-    default: null,
-  },
-  isApproved: {
-    type: Boolean,
-    default: false,
-  },
-  role: {
-    type: String,
-    default: 'mechanic',
-  },
-  isAvailable: {
-    type: Boolean,
-    default: false,
-  },
+  profilePicture: { type: String, default: null },
+  isApproved: { type: Boolean, default: false },
+  role: { type: String, default: 'mechanic' },
+  isAvailable: { type: Boolean, default: false },
   liveLocation: {
     type: {
-      latitude: Number,
-      longitude: Number,
+      type: String,
+      enum: ['Point'],
+      required: true,
+      default: 'Point',
     },
-    default: null,
+    coordinates: {
+      type: [Number],
+      required: true,
+      default: [0, 0],
+    },
   },
-  dateCreated: {
-    type: Date,
-    default: Date.now,
-  },
+  dateCreated: { type: Date, default: Date.now },
 });
+
+MechanicSchema.index({ liveLocation: '2dsphere' }); // Enable geospatial queries
 
 // Hash password before saving
 MechanicSchema.pre('save', async function (next) {
-  if (!this.isModified('password')) {
-    return next();
-  }
+  if (!this.isModified('password')) return next();
   try {
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);

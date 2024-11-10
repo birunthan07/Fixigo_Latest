@@ -4,6 +4,7 @@ import L from 'leaflet';
 import config from '../config';
 import 'leaflet/dist/leaflet.css';
 import { FaMapMarkerAlt, FaCar, FaMotorcycle, FaTruck, FaSearch, FaSpinner } from 'react-icons/fa';
+import axios from 'axios';
 
 // Fix for default marker icon issue with Leaflet and Webpack
 delete L.Icon.Default.prototype._getIconUrl;
@@ -21,7 +22,7 @@ export default function UserDashboard() {
   const [vehicleType, setVehicleType] = useState('Car');
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  
+
   const rapidApiKey = config.RAPIDAPI_KEY;
 
   const requestOptions = useMemo(() => ({
@@ -63,68 +64,92 @@ export default function UserDashboard() {
 
   const useUserLocation = (geocodeFn, setLocationFn, setLocationCoordsFn) => {
     useEffect(() => {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const { latitude, longitude } = position.coords;
-            console.log('Fetched location:', { latitude, longitude });
-            const latlng = [latitude, longitude];
-            setLocationCoordsFn(latlng);
-            geocodeFn(latlng);
-          },
-          (error) => {
-            console.error('Error fetching location:', error);
-            setLocationFn('Unable to fetch location.');
-          }
-        );
-      }
-    }, [geocodeFn, setLocationCoordsFn, setLocationFn]);
-  };
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                async (position) => {
+                    const { latitude, longitude } = position.coords;
+                    console.log('Fetched location:', { latitude, longitude });
+                    
+                    const token = localStorage.getItem('token'); // Authorization token
+                    const userId = localStorage.getItem('userId'); // User ID from local storage
 
-  useUserLocation(geocode, setLocation, setLocationCoords);
+                    if (token && userId) {
+                        try {
+                            await axios.post(
+                                'http://localhost:5000/api/auth/update-location',
+                                { userId, latitude, longitude },
+                                { headers: { Authorization: `Bearer ${token}` } }
+                            );
+                            console.log('Live location updated successfully');
+                        } catch (error) {
+                            console.error('Error updating live location:', error);
+                        }
+                    }
 
-  const handleSearchMechanics = async () => {
-    if (!locationCoords) {
-      setErrorMessage('Please allow location access to search for nearby mechanics.');
-      return;
-    }
-
-    setLoadingSuggestions(true);
-    setErrorMessage('');
-
-    try {
-      const mechanicsApiUrl = `http://localhost:5000/api/mechanic/search`;
-
-      const response = await fetch(
-        `${mechanicsApiUrl}?lat=${locationCoords[0]}&lng=${locationCoords[1]}&vehicleType=${vehicleType}`,
-        {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          },
+                    const latlng = [latitude, longitude];
+                    setLocationCoordsFn(latlng);
+                    geocodeFn(latlng);
+                },
+                (error) => {
+                    console.error('Error fetching location:', error);
+                    setLocationFn('Unable to fetch location.');
+                }
+            );
         }
-      );
+    }, [geocodeFn, setLocationCoordsFn, setLocationFn]);
+};
 
-      if (!response.ok) {
-        throw new Error(`Error fetching mechanics: ${response.statusText}`);
+useUserLocation(geocode, setLocation, setLocationCoords);
+
+  // Fetch nearby mechanics based on the live location
+const handleSearchMechanics = async () => {
+  // Check if location coordinates and vehicleType are provided
+  if (!locationCoords) {
+    setErrorMessage('Please allow location access to search for nearby mechanics.');
+    return;
+  }
+  if (!vehicleType) {
+    setErrorMessage('Please select a vehicle type.');
+    return;
+  }
+
+  setLoadingSuggestions(true);
+  setErrorMessage('');
+
+  try {
+    const mechanicsApiUrl = `http://localhost:5000/api/mechanic/search`;
+
+    // Construct the URL with user's location and vehicle type
+    const response = await fetch(
+      `${mechanicsApiUrl}?lat=${encodeURIComponent(locationCoords[0])}&lng=${encodeURIComponent(locationCoords[1])}&vehicleType=${encodeURIComponent(vehicleType)}`,
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
       }
-      console.log(`Fetching mechanics from: ${mechanicsApiUrl}?lat=${locationCoords[0]}&lng=${locationCoords[1]}&vehicleType=${vehicleType}`);
+    );
 
-      const data = await response.json();
-      setSuggestions(data.mechanics);
-    } catch (error) {
-      console.error('Error searching mechanics:', error);
-      setErrorMessage('Failed to search for mechanics.');
-    } finally {
-      setLoadingSuggestions(false);
+    if (!response.ok) {
+      throw new Error(`Error fetching mechanics: ${response.statusText}`);
     }
-  };
 
-  useEffect(() => {
-    if (locationCoords) {
-      setMapCenter(locationCoords);
-    }
-  }, [locationCoords]);
+    const data = await response.json();
+    setSuggestions(data.mechanics); // Set the mechanics suggestions from the response
+  } catch (error) {
+    console.error('Error searching mechanics:', error);
+    setErrorMessage('Failed to search for mechanics.');
+  } finally {
+    setLoadingSuggestions(false);
+  }
+};
+
+useEffect(() => {
+  if (locationCoords) {
+    setMapCenter(locationCoords);
+  }
+}, [locationCoords]);
+
 
   const styles = {
     container: {

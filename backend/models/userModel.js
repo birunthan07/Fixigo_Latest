@@ -1,5 +1,3 @@
-
-
 // const mongoose = require('mongoose');
 // const bcrypt = require('bcryptjs');
 
@@ -7,47 +5,48 @@
 //     username: {
 //         type: String,
 //         unique: true,
-//         required: [true, 'Username is required']
+//         required: [true, 'Username is required'],
 //     },
 //     email: {
 //         type: String,
 //         unique: true,
 //         required: [true, 'Email is required'],
-//         match: [/.+\@.+\..+/, 'Please provide a valid email address']  // Validate email format
+//         match: [/.+\@.+\..+/, 'Please provide a valid email address'],
 //     },
 //     password: {
 //         type: String,
-//         required: [true, 'Password is required']
+//         required: [true, 'Password is required'],
 //     },
 //     role: {
 //         type: String,
-//         enum: ['user', 'admin'],  // Define valid roles, including mechanic
-//         default: 'user'           // Default role
+//         enum: ['user', 'admin', 'mechanic'],
+//         default: 'user',
 //     },
 //     isActive: {
 //         type: Boolean,
-//         default: true             // Default to active user
+//         default: true,
 //     },
 //     address: {
 //         type: String,
-//         required: [true, 'Address is required']  // User address for locating services
+//         required: [true, 'Address is required'],
 //     },
 //     phoneNumber: {
 //         type: String,
-//         required: [true, 'Phone number is required'],  // Contact number
-//         match: [/^\d{10}$/, 'Please provide a valid phone number']  // Validate phone format
+//         required: [true, 'Phone number is required'],
+//         match: [/^\d{10}$/, 'Please provide a valid phone number'],
 //     },
 //     createdAt: {
 //         type: Date,
-//         default: Date.now        // Track account creation date
-//     }
+//         default: Date.now,
+//     },
 // });
 
-// // Hash password before saving
-// UserSchema.pre('save', async function(next) {
+// // Hash the password before saving the user
+// UserSchema.pre('save', async function (next) {
 //     if (!this.isModified('password')) {
 //         return next();
 //     }
+
 //     const salt = await bcrypt.genSalt(10);
 //     this.password = await bcrypt.hash(this.password, salt);
 //     next();
@@ -61,43 +60,66 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
-
 const UserSchema = new mongoose.Schema({
     username: {
         type: String,
         unique: true,
-        required: function() { return this.isNew || this.isModified('username'); }  // Required on creation or username change
+        required: [true, 'Username is required'],
     },
     email: {
         type: String,
         unique: true,
         required: [true, 'Email is required'],
-        match: [/.+\@.+\..+/, 'Please provide a valid email address']  // Validate email format
+        match: [/.+\@.+\..+/, 'Please provide a valid email address'],
     },
     password: {
         type: String,
-        required: function() { return this.isNew || this.isModified('password'); }
+        required: [true, 'Password is required'],
     },
     role: {
         type: String,
-        enum: ['user', 'admin'],  // Define valid roles, including mechanic
-        default: 'user'           // Default role
+        enum: ['user', 'admin', 'mechanic'],
+        default: 'user',
     },
     isActive: {
         type: Boolean,
-        default: true
+        default: true,
     },
     address: {
         type: String,
-        required: [true, 'Address is required']  // User address for locating services
+        required: [true, 'Address is required'],
     },
     phoneNumber: {
         type: String,
-        required: [true, 'Phone number is required'],  // Contact number
-        match: [/^\d{10}$/, 'Please provide a valid phone number']  // Validate phone format
+        required: [true, 'Phone number is required'],
+        match: [/^\d{10}$/, 'Please provide a valid phone number'],
+    },
+    liveLocation: {
+        type: {
+            type: String,
+            enum: ['Point'],
+            default: 'Point',
+        },
+        coordinates: {
+            type: [Number], // Format: [longitude, latitude]
+            default: [0, 0],
+        },
     },
     createdAt: {
         type: Date,
-        default: Date.now        // Track account creation date
-    }
+        default: Date.now,
+    },
 });
+
+// Hash the password before saving the user
+UserSchema.pre('save', async function (next) {
+    if (!this.isModified('password')) {
+        return next();
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+    next();
+});
+
+module.exports = mongoose.model('User', UserSchema);

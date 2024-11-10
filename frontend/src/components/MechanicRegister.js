@@ -1,8 +1,8 @@
+// MechanicRegisterForm.js
 import React, { useState } from 'react';
 import axios from 'axios';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { FaUser, FaEnvelope, FaLock, FaPhone, FaMapMarkerAlt, FaFileUpload, FaCar } from 'react-icons/fa';
-import { useNavigate } from 'react-router-dom';
 
 export default function MechanicRegisterForm() {
   const [formData, setFormData] = useState({
@@ -28,11 +28,7 @@ export default function MechanicRegisterForm() {
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = 'Email is invalid';
     }
-    if (!formData.password) {
-      newErrors.password = 'Password is required';
-    } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
-    }
+    if (!formData.password) newErrors.password = 'Password is required';
     if (!formData.phoneNumber.trim()) newErrors.phoneNumber = 'Phone number is required';
     if (!formData.address.trim()) newErrors.address = 'Address is required';
     if (!formData.verificationCertificate) newErrors.verificationCertificate = 'Verification certificate is required';
@@ -50,55 +46,28 @@ export default function MechanicRegisterForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    // Validate the form inputs
     const validationErrors = validateForm();
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
       return;
     }
 
-    // Prepare the FormData for the request
     const formDataToSend = new FormData();
     Object.keys(formData).forEach(key => {
       formDataToSend.append(key, formData[key]);
     });
-  
-    // Log FormData details for debugging
-    console.log('FormData being sent:', [...formDataToSend]);
 
     try {
-      // Make the API call to register the mechanic
       const response = await axios.post('http://localhost:5000/api/mechanic/register', formDataToSend, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
-      // Log the full response data for debugging
-      console.log('Full server response:', response.data);
-  
-      // Check if the response contains the expected fields
-      if (!response.data.token || !response.data.mechanicId) {
-        console.error('Error: Token or mechanicId is missing in the response');
-        setServerError('Registration failed. Please try again.');
-        setSuccessMessage('');
-        return;
-      }
-  
-      // Extract token, role, and mechanicId from the response
       const { token, role, mechanicId } = response.data;
 
-      // Log before saving to localStorage
-      console.log('Before saving to localStorage:', token, role, mechanicId);
-  
-      // Store token, role, and mechanicId in localStorage
       localStorage.setItem('token', token);
       localStorage.setItem('role', role || 'mechanic');
       localStorage.setItem('mechanicId', mechanicId);
 
-      // Log after saving to localStorage
-      console.log('After saving to localStorage:', localStorage.getItem('token'), localStorage.getItem('role'), localStorage.getItem('mechanicId'));
-  
-      // Set success message and reset form data
       setSuccessMessage('Registration successful! Your profile is under review.');
       setFormData({
         username: '',
@@ -114,10 +83,6 @@ export default function MechanicRegisterForm() {
 
       navigate('/mechanic-dashboard');
     } catch (error) {
-      // Handle error if the registration API call fails
-      console.error('Error during registration:', error);
-  
-      // Log the full error response from the server
       if (error.response) {
         console.error('Error response data:', error.response.data);
         setServerError(error.response?.data?.msg || 'Registration failed. Please try again.');
@@ -128,7 +93,7 @@ export default function MechanicRegisterForm() {
       setSuccessMessage('');
     }
   };
-  
+
   const styles = {
     container: {
       display: 'flex',
@@ -288,12 +253,7 @@ export default function MechanicRegisterForm() {
             />
             {errors.address && <p style={styles.error}>{errors.address}</p>}
           </div>
-      
           <div style={styles.inputGroup}>
-            <label htmlFor="verificationCertificate" style={styles.fileLabel}>
-              <FaFileUpload style={{ marginRight: '10px' }} />
-              Upload Verification Certificate
-            </label>
             <input
               type="file"
               id="verificationCertificate"
@@ -302,13 +262,18 @@ export default function MechanicRegisterForm() {
               style={styles.fileInput}
               required
             />
-            
+            <label htmlFor="verificationCertificate" style={styles.fileLabel}>
+              <FaFileUpload style={{ marginRight: '10px' }} />
+              {formData.verificationCertificate ? formData.verificationCertificate.name : 'Upload Verification Certificate'}
+            </label>
             {errors.verificationCertificate && <p style={styles.error}>{errors.verificationCertificate}</p>}
           </div>
+          {/* New input for vehicle type */}
           <div style={styles.inputGroup}>
             <FaCar style={styles.icon} />
             <select
               name="vehicleType"
+              placeholder="Vehicle Type"
               value={formData.vehicleType}
               onChange={handleChange}
               style={styles.input}
@@ -325,7 +290,7 @@ export default function MechanicRegisterForm() {
           </div>
           <button type="submit" style={styles.button}>Register</button>
         </form>
-        <Link to="/login" style={styles.link}>Already have an account? Login</Link>
+        <Link to="/mechanic-login" style={styles.link}>Already have an account? Login</Link>
       </div>
     </div>
   );

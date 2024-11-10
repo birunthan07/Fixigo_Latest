@@ -169,7 +169,7 @@ router.patch('/mechanic/:id/activate', adminCheck, async (req, res) => {
     }
 });
 
-
+// PATCH /api/admin/mechanic/:id/approve - Approve a mechanic (requires admin role)
 // PATCH /api/admin/mechanic/:id/approve - Approve a mechanic (requires admin role)
 router.patch('/mechanic/:id/approve', adminCheck, async (req, res) => {
     try {
@@ -202,6 +202,34 @@ router.patch('/mechanic/:id/reject', adminCheck, async (req, res) => {
     }
 });
 
+// DELETE /api/admin/mechanic/:id - Delete a mechanic (requires admin role)
+router.delete('/admin/mechanic/:id', adminCheck, async (req, res) => {
+    try {
+        // Log the mechanic ID to confirm it's being passed correctly
+        console.log(`Attempting to delete mechanic with ID: ${req.params.id}`);
+
+        const mechanic = await Mechanic.findById(req.params.id);
+
+        // Check if mechanic exists
+        if (!mechanic) {
+            console.log(`Mechanic with ID ${req.params.id} not found`);
+            return res.status(404).json({ msg: 'Mechanic not found' });
+        }
+
+        // Remove the mechanic
+        await mechanic.remove();
+        console.log(`Mechanic with ID ${req.params.id} has been deleted`);
+
+        // Send success response
+        res.json({ msg: 'Mechanic deleted' });
+    } catch (err) {
+        console.error('Error deleting mechanic:', err.message);
+        res.status(500).json({ msg: 'Server error', error: err.message });
+    }
+});
+
+
+
 // PATCH /api/admin/mechanic/:id - Update mechanic details (requires admin role)
 router.patch('/mechanic/:id', adminCheck, async (req, res) => {
     const { username, email, vehicleType, licenseNumber } = req.body;
@@ -223,6 +251,7 @@ router.patch('/mechanic/:id', adminCheck, async (req, res) => {
         res.status(500).json({ msg: 'Server error' });
     }
 });
+
 
 
 // PATCH /api/admin/mechanic/:id - Update mechanic details (requires admin role)
@@ -248,19 +277,7 @@ router.patch('/mechanic/:id', adminCheck, async (req, res) => {
     }
 });
 
-// DELETE /api/admin/mechanic/:id - Delete a mechanic (requires admin role)
-router.delete('/mechanic/:id', adminCheck, async (req, res) => {
-    try {
-        const mechanic = await Mechanic.findById(req.params.id);
-        if (!mechanic) return res.status(404).json({ msg: 'Mechanic not found' });
 
-        await mechanic.remove();
-        res.json({ msg: 'Mechanic deleted' });
-    } catch (err) {
-        console.error('Error deleting mechanic:', err.message);
-        res.status(500).json({ msg: 'Server error' });
-    }
-});
 
 // GET /api/admin/servicerequests - Fetch all service requests (requires admin role)
 router.get('/servicerequests', adminCheck, async (req, res) => {

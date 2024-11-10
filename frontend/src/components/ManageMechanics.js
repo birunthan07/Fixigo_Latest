@@ -31,38 +31,49 @@ function ManageMechanics() {
       setLoading(false);
     }
   };
-
-  // Approve or reject a mechanic
   const handleAction = async (action, mechanicId) => {
     try {
-      setError(null);
-      setSuccessMessage('');
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('No token found, please log in.');
-      }
+        setError(null);
+        setSuccessMessage('');
+        const token = localStorage.getItem('token');
+        if (!token) {
+            throw new Error('No token found, please log in.');
+        }
 
-      let response;
-      if (action === 'delete') {
-        response = await axios.delete(
-          `http://localhost:5000/api/admin/mechanics/${mechanicId}`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-      } else {
-        response = await axios.patch(
-          `http://localhost:5000/api/admin/mechanics/${mechanicId}/${action}`,
-          {},
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-      }
+        console.log(`Performing action: ${action} on mechanic with ID: ${mechanicId}`);
 
-      setSuccessMessage(response.data.msg);
-      fetchMechanics(); // Refresh mechanic list
+        let response;
+        if (action === 'delete') {
+            // Ensure the URL is correct here
+            console.log(`Sending DELETE request for mechanic ID: ${mechanicId}`);
+
+            response = await axios.delete(
+                `http://localhost:5000/api/admin/mechanic/${mechanicId}`, // Ensure this is the correct path
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+        } else if (action === 'approve') {
+            response = await axios.patch(
+                `http://localhost:5000/api/admin/mechanic/${mechanicId}/approve`,
+                {},
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+        } else if (action === 'reject') {
+            response = await axios.patch(
+                `http://localhost:5000/api/admin/mechanic/${mechanicId}/reject`,
+                {},
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+        }
+
+        console.log(`Action ${action} successful: ${response.data.msg}`);
+        setSuccessMessage(response.data.msg);
+        fetchMechanics(); // Refresh mechanic list
     } catch (err) {
-      console.error(`Error performing ${action}:`, err);
-      setError(err.response?.data?.msg || err.message || `Error performing ${action}`);
+        console.error(`Error performing ${action}:`, err);
+        setError(err.response?.data?.msg || err.message || `Error performing ${action}`);
     }
-  };
+};
+
 
   if (loading) return <p>Loading mechanics...</p>;
 
