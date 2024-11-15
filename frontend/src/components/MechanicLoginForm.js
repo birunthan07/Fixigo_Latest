@@ -1,8 +1,7 @@
+import { FaEnvelope, FaLock, FaWrench, FaSignInAlt } from 'react-icons/fa';
 import React, { useState } from 'react';
 import axios from 'axios';
-import { Link, useNavigate } from 'react-router-dom';
-import { FaEnvelope, FaLock, FaWrench, FaSignInAlt } from 'react-icons/fa';
-
+import { useNavigate, Link } from 'react-router-dom';
 
 export default function MechanicLoginForm() {
     const [formData, setFormData] = useState({
@@ -32,42 +31,42 @@ export default function MechanicLoginForm() {
     const handleSubmit = async (e) => {
         e.preventDefault();
         const validationErrors = validateForm();
-        
+
         if (Object.keys(validationErrors).length > 0) {
             setErrors(validationErrors);
             return;
         }
 
         try {
-            // Sending login request to the backend
+            console.log("Form data submitted:", formData);
+
             const response = await axios.post('http://localhost:5000/api/mechanic/login', formData);
+
+            console.log("Login response:", response.data);
 
             // Extract mechanicId and token from response
             const { mechanicId, token } = response.data;
 
-            // Check if mechanicId and token are available in the response
             if (mechanicId && token) {
-                // Store mechanicId and token in localStorage
                 localStorage.setItem('mechanicId', mechanicId);
                 localStorage.setItem('token', token);
-                
+
                 setSuccessMessage('Login successful!');
                 setFormData({ email: '', password: '' });
                 setErrors({});
                 setServerError('');
 
-                // Redirect to the mechanic dashboard
                 navigate('/mechanic-dashboard');
             } else {
                 setServerError('Missing mechanicId or token in response');
                 setSuccessMessage('');
             }
         } catch (error) {
-            // Handle different error scenarios
+            console.error('Error response:', error.response);  // Log error response
             if (error.response?.status === 403) {
                 setServerError('Your account is not approved yet.');
             } else if (error.response?.status === 400) {
-                setServerError('Invalid Credentials');
+                setServerError(error.response.data.msg || 'Invalid Credentials');
             } else {
                 setServerError('An unexpected error occurred.');
             }

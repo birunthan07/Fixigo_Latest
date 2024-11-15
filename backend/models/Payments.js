@@ -1,6 +1,13 @@
+
 const mongoose = require('mongoose');
 
-const PaymentSchema = new mongoose.Schema({
+
+const paymentSchema = new mongoose.Schema({
+  driverId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Driver',
+    required: true
+  },
   amount: {
     type: Number,
     required: true
@@ -9,14 +16,14 @@ const PaymentSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  paymentIntentId: {
-    type: String,
-    required: true
-  },
   status: {
     type: String,
-    required: true
-  }
-});
+    enum: ['pending', 'completed', 'failed'],
+    default: 'pending'
+  },
+  stripePaymentIntentId: String,
+  transactionId: String
+}, { timestamps: true });
 
-module.exports = mongoose.model('Payment', PaymentSchema);
+const Payment = mongoose.model('Payment', paymentSchema);
+module.exports = Payment;

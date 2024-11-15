@@ -87,7 +87,8 @@
 //   }
 // });
 
-// module.exports = mongoose.model('Mechanic', MechanicSchema);
+
+
 
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
@@ -118,21 +119,18 @@ const MechanicSchema = new mongoose.Schema({
     type: {
       type: String,
       enum: ['Point'],
-      required: true,
-      default: 'Point',
     },
     coordinates: {
       type: [Number],
       required: true,
-      default: [0, 0],
+      default: [0, 0], // default to [0, 0] if no location is provided
     },
   },
   dateCreated: { type: Date, default: Date.now },
 });
 
-MechanicSchema.index({ liveLocation: '2dsphere' }); // Enable geospatial queries
+MechanicSchema.index({ liveLocation: '2dsphere' });
 
-// Hash password before saving
 MechanicSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
   try {

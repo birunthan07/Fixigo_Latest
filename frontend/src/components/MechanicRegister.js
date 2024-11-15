@@ -43,7 +43,6 @@ export default function MechanicRegisterForm() {
       setFormData({ ...formData, [e.target.name]: e.target.value });
     }
   };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     const validationErrors = validateForm();
@@ -52,47 +51,62 @@ export default function MechanicRegisterForm() {
       return;
     }
 
-    const formDataToSend = new FormData();
-    Object.keys(formData).forEach(key => {
-      formDataToSend.append(key, formData[key]);
-    });
+    // Get the user's location (latitude and longitude) from the browser
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
 
-    try {
-      const response = await axios.post('http://localhost:5000/api/mechanic/register', formDataToSend, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+        const formDataToSend = new FormData();
+        Object.keys(formData).forEach(key => {
+          formDataToSend.append(key, formData[key]);
+        });
 
-      const { token, role, mechanicId } = response.data;
+        // Append longitude and latitude to the form data
+        formDataToSend.append('longitude', longitude);
+        formDataToSend.append('latitude', latitude);
 
-      localStorage.setItem('token', token);
-      localStorage.setItem('role', role || 'mechanic');
-      localStorage.setItem('mechanicId', mechanicId);
+        try {
+          const response = await axios.post('http://localhost:5000/api/mechanic/register', formDataToSend, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          });
 
-      setSuccessMessage('Registration successful! Your profile is under review.');
-      setFormData({
-        username: '',
-        email: '',
-        password: '',
-        phoneNumber: '',
-        address: '',
-        verificationCertificate: null,
-        vehicleType: '',
-      });
-      setErrors({});
-      setServerError('');
+          const { token, role, mechanicId } = response.data;
 
-      navigate('/mechanic-dashboard');
-    } catch (error) {
-      if (error.response) {
-        console.error('Error response data:', error.response.data);
-        setServerError(error.response?.data?.msg || 'Registration failed. Please try again.');
-      } else {
-        console.error('Unexpected error:', error.message);
-        setServerError('An unexpected error occurred. Please try again.');
+          localStorage.setItem('token', token);
+          localStorage.setItem('role', role || 'mechanic');
+          localStorage.setItem('mechanicId', mechanicId);
+
+          setSuccessMessage('Registration successful! Your profile is under review.');
+          setFormData({
+            username: '',
+            email: '',
+            password: '',
+            phoneNumber: '',
+            address: '',
+            verificationCertificate: null,
+            vehicleType: '',
+          });
+          setErrors({});
+          setServerError('');
+
+          navigate('/mechanic-dashboard');
+        } catch (error) {
+          if (error.response) {
+            console.error('Error response data:', error.response.data);
+            setServerError(error.response?.data?.msg || 'Registration failed. Please try again.');
+          } else {
+            console.error('Unexpected error:', error.message);
+            setServerError('An unexpected error occurred. Please try again.');
+          }
+          setSuccessMessage('');
+        }
+      },
+      (error) => {
+        setServerError('Unable to fetch location. Please enable location services.');
+        console.error(error);
       }
-      setSuccessMessage('');
-    }
-  };
+    );
+};
 
   const styles = {
     container: {
