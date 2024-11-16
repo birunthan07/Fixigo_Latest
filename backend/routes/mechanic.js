@@ -372,56 +372,62 @@ router.get('/service-requests', async (req, res) => {
     }
 });
 
-
-
-// // Mechanic search route
 // router.get('/search', async (req, res) => {
 //     const { lat, lng, vehicleType } = req.query;
 
-//     // Validate query parameters
+//     console.log("Query Params:", { lat, lng, vehicleType });
+
 //     if (!lat || !lng || !vehicleType) {
-//         return res.status(400).json({
-//             message: 'Latitude, longitude, and vehicle type are required.'
-//         });
+//         return res.status(400).json({ message: "Missing required query parameters: lat, lng, vehicleType." });
 //     }
 
 //     try {
-//         // Define search parameters
-//         const radiusInMeters = 5000; // 5 km radius
-//         const mechanics = await Mechanic.find({
-//             liveLocation: {
-//                 $near: {
-//                     $geometry: {
-//                         type: 'Point',
-//                         coordinates: [parseFloat(lng), parseFloat(lat)], // [longitude, latitude]
-//                     },
-//                     $maxDistance: radiusInMeters,
-//                 },
-//             },
-//             vehicleType: vehicleType, // Match vehicle type
-//             isAvailable: true, // Filter by availability
-//         });
+//         const latFloat = parseFloat(lat);
+//         const lngFloat = parseFloat(lng);
 
-//         // Return results
-//         res.status(200).json({ mechanics });
+//         if (isNaN(latFloat) || isNaN(lngFloat)) {
+//             return res.status(400).json({ message: "Invalid latitude or longitude." });
+//         }
+
+//         const mechanics = await Mechanic.aggregate([
+//             {
+//                 $geoNear: {
+//                     near: { type: "Point", coordinates: [lngFloat, latFloat] },
+//                     distanceField: "distance",
+//                     maxDistance: 5000,  // adjust this distance as needed
+//                     query: { vehicleType: vehicleType },
+//                     spherical: true
+//                 }
+//             },
+//             {
+//                 $project: {  // Specify the fields you want to return
+//                     username: 1,
+//                     vehicleType: 1,
+//                     liveLocation: 1,
+//                     distance: 1,  // Optional: include the distance from the search location
+//                     _id: 0  // Exclude _id if you don't need it in the response
+//                 }
+//             }
+//         ]);
+
+//         console.log("Fetched Mechanics:", mechanics);
+
+//         res.json({ mechanics });
 //     } catch (error) {
-//         console.error('Error searching mechanics:', error);
-//         res.status(500).json({
-//             message: 'Server error while searching mechanics',
-//             error: error.message,
-//         });
+//         console.error("Error fetching mechanics:", error);
+//         res.status(500).json({ message: "Error fetching mechanics." });
 //     }
 // });
-
 router.get('/search', async (req, res) => {
     const { lat, lng, vehicleType } = req.query;
+
+    console.log("Query Params:", { lat, lng, vehicleType });
 
     if (!lat || !lng || !vehicleType) {
         return res.status(400).json({ message: "Missing required query parameters: lat, lng, vehicleType." });
     }
 
     try {
-        // Ensure coordinates are parsed as floats
         const latFloat = parseFloat(lat);
         const lngFloat = parseFloat(lng);
 
@@ -432,22 +438,42 @@ router.get('/search', async (req, res) => {
         const mechanics = await Mechanic.aggregate([
             {
                 $geoNear: {
-                    near: { type: "Point", coordinates: [lngFloat, latFloat] },  // Correcting coordinates order
+                    near: { type: "Point", coordinates: [lngFloat, latFloat] },
                     distanceField: "distance",
-                    maxDistance: 5000,  // Distance in meters
+                    maxDistance: 5000,  // Adjust this distance as needed
                     query: { vehicleType: vehicleType },
                     spherical: true
+                }
+            },
+            {
+                $project: {  // Specify the fields you want to return
+                    username: 1,
+                    email: 1,
+                    verificationCertificate: 1,
+                    isApproved: 1,
+                    role: 1,
+                    isAvailable: 1,
+                    liveLocation: 1,
+                    distance: 1,  // Optional: include the distance from the search location
+                    _id: 0
                 }
             }
         ]);
 
-        // Return mechanics found
-        res.json({ mechanics });
+        if (mechanics.length === 0) {
+            console.log("No mechanics found for the given query.");
+            return res.status(200).json({ message: "No mechanics found." });
+        }
+
+        console.log("Fetched Mechanics:", mechanics);
+
+        res.status(200).json({ mechanics });
     } catch (error) {
         console.error("Error fetching mechanics:", error);
         res.status(500).json({ message: "Error fetching mechanics." });
     }
 });
+
 
 // Backend route to fetch live locations of available mechanics
 router.get('/live-locations', async (req, res) => {
