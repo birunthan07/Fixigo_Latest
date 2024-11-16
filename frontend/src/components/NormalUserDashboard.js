@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
@@ -20,7 +19,7 @@ export default function UserDashboard() {
   const [locationCoords, setLocationCoords] = useState(null);
   const [userLocationMarker, setUserLocationMarker] = useState(null);
   const [mapCenter, setMapCenter] = useState([9.6615, 80.0255]);
-  const [suggestions, setSuggestions] = useState([]);
+  const [suggestions, setSuggestions] = useState([]); // Default to empty array
   const [vehicleType, setVehicleType] = useState('Car');
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -117,7 +116,7 @@ export default function UserDashboard() {
         throw new Error(`Error fetching mechanics: ${errorData.message || response.statusText}`);
       }
       const data = await response.json();
-      setSuggestions(data.mechanics);
+      setSuggestions(data.mechanics || []); // Ensure it defaults to an empty array if no mechanics
     } catch (error) {
       setErrorMessage(error.message || 'Failed to search for mechanics.');
     } finally {
@@ -219,60 +218,67 @@ export default function UserDashboard() {
         {errorMessage && <p style={{ color: '#e74c3c' }}>{errorMessage}</p>}
         <label style={styles.label}>
           Vehicle Type:
-          <select 
-            value={vehicleType} 
+          <select
+            value={vehicleType}
             onChange={(e) => setVehicleType(e.target.value)}
             style={styles.select}
           >
             <option value="Car">Car</option>
-            <option value="Motorbike">Motorbike</option>
+            <option value="motorbike">motorbike</option>
             <option value="Truck">Truck</option>
-            <option value="other">other</option>
           </select>
         </label>
-        <button 
-          onClick={handleSearchMechanics} 
-          disabled={!locationCoords}
-          style={styles.button}
-        >
-          {loadingSuggestions ? <FaSpinner className="spinner" /> : <FaSearch />} 
-          Search Nearby Mechanics
+        <button onClick={handleSearchMechanics} style={styles.button}>
+          {loadingSuggestions ? <FaSpinner className="fa-spin" /> : <FaSearch />}
+          Search Mechanics
         </button>
       </div>
 
-      <div style={styles.mapContainer}>
-        <MapContainer center={mapCenter} zoom={14} style={{ height: '100%', width: '100%' }}>
-          <TileLayer
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          />
-          {userLocationMarker && (
-            <Marker position={userLocationMarker}>
-              <Popup>Your Location</Popup>
-            </Marker>
-          )}
-          {suggestions.map((mechanic) => (
-            <Marker 
-              key={mechanic._id} 
-              position={[mechanic.location.coordinates[1], mechanic.location.coordinates[0]]}
-              onClick={() => selectMechanic(mechanic)}
-            >
-              <Popup>{mechanic.name}</Popup>
-            </Marker>
-          ))}
-        </MapContainer>
-      </div>
-
-      {selectedMechanic && (
-        <div style={styles.mechanicCard}>
-          <h3 style={styles.mechanicCardHeader}>{selectedMechanic.name}</h3>
-          <p style={styles.mechanicCardDetails}>Phone: {selectedMechanic.phoneNumber}</p>
-          <p style={styles.mechanicCardDetails}>Service Type: {selectedMechanic.serviceType}</p>
+      {suggestions.map((mechanic, index) => (
+        <div
+          key={index}
+          onClick={() => selectMechanic(mechanic)}
+          style={styles.mechanicCard}
+        >
+          <h3 style={styles.mechanicCardHeader}>{mechanic.username}</h3>
+          <p style={styles.mechanicCardDetails}>
+            <strong>Email:</strong> {mechanic.email}
+          </p>
+          <p style={styles.mechanicCardDetails}>
+            <strong>Location:</strong>
+            {mechanic.liveLocation ? `Lat: ${mechanic.liveLocation.coordinates[1]}, Lng: ${mechanic.liveLocation.coordinates[0]}` : 'Not available'}
+          </p>
+          <p style={styles.mechanicCardDetails}>
+            <strong>Verification Certificate:</strong> <a href={mechanic.verificationCertificate} target="_blank" rel="noopener noreferrer">View Certificate</a>
+          </p>
+          <p style={styles.mechanicCardDetails}>
+            <strong>Available:</strong> {mechanic.isAvailable ? 'Yes' : 'No'}
+          </p>
         </div>
-      )}
+      ))}
+
+      <MapContainer center={mapCenter} zoom={13} style={styles.mapContainer}>
+        <TileLayer
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+        {userLocationMarker && <Marker position={userLocationMarker}><Popup>Your Location</Popup></Marker>}
+        {suggestions.map((mechanic, index) => (
+          mechanic.liveLocation && (
+            <Marker key={index} position={[mechanic.liveLocation.coordinates[1], mechanic.liveLocation.coordinates[0]]}>
+              <Popup>{mechanic.username}</Popup>
+            </Marker>
+          )
+        ))}
+      </MapContainer>
+
     </div>
   );
 }
+
+
+
+
+
 
 
 
