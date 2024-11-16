@@ -1,4 +1,3 @@
-// src/routes/mechanic.js
 
 const express = require('express');
 const router = express.Router();
@@ -7,55 +6,102 @@ const path = require('path');
 const fs = require('fs');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const mongoose = require('mongoose');
-const Mechanic = require('../models/ mechanicmodel.js'); // Updated import path
+const Mechanic = require('../models/ mechanicmodel'); // Updated to use the Mechanic model
 const authMiddleware = require('../middleware/authMiddleware');
-const ServiceRequest = require('../models/MechanicRequestmodel.js');
-const User = require('../models/userModel.js'); 
+const mongoose = require('mongoose');
+
+router.post('/service-requests/:token', async (req, res) => {
+    const { token } = req.params;
+
+    try {
+        // Verify the token and get mechanic ID
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const mechanicId = decoded.mechanic.id;
+        console.log(mechanicId);
+
+        const mechanic = await Mechanic.findById(mechanicId);
+        if (!mechanic) {
+            return res.status(404).json({ message: 'Mechanic not found' });
+        }
+
+        const { specialization, location: liveLocation } = mechanic;
+
+        console.log('Mechanic Location:', liveLocation.coordinates);
+
+        // Fetch all service requests that match the mechanic's specialization
+        const serviceRequests = await ServiceRequest.find({
+            specialization: specialization.toLowerCase(),
+            status: 'pending'
+        });
+
+        res.json({ nearbyRequest: serviceRequests[serviceRequests.length - 1] });
+        
+    } catch (error) {
+        console.error('Error fetching service requests:', error);
+        res.status(500).json({ message: 'Failed to fetch service requests' });
+    }
+});
+
+
+// Find user
+router.get('/user/:userId', async (req, res) => {
+    try {
+        const userId = req.params.userId;
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        res.json(user);
+    } catch (error) {
+        console.error('Error fetching user details:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
 
 // Define the upload directory
 const uploadDir = path.join(__dirname, '../uploads');
 
-// Ensure upload directory exists
+// Create the upload directory if it does not exist
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
 }
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
-    destination: (req, file, cb) => cb(null, uploadDir),
-    filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname)
+    destination: (req, file, cb) => {
+        cb(null, uploadDir); // Specify the upload directory
+    },
+    filename: (req, file, cb) => {
+        cb(null, Date.now() + '-' + file.originalname); // Customize the file name
+    }
 });
+
 const upload = multer({ storage });
 
+// POST /api/mechanic/register - Register Mechanic with document uploads
 
-// Register a new mechanic
 router.post('/register', 
-    upload.single('verificationCertificate'), 
+    upload.single('verificationCertificate'), // Require one file upload for verification certificate
     async (req, res) => {
-        const { username, email, password, phoneNumber, address, vehicleType, longitude, latitude } = req.body;
+        const { username, email, password, phoneNumber, address, vehicleType } = req.body;
 
         try {
-            // Check if mechanic exists
+            // Check if the mechanic already exists
             let mechanic = await Mechanic.findOne({ email });
             if (mechanic) {
                 return res.status(400).json({ msg: 'Mechanic already exists' });
             }
 
             // Ensure verification certificate is uploaded
-            if (!req.file) {
+            if (!req.file) { 
                 return res.status(400).json({ msg: 'Verification certificate must be uploaded' });
-            }
-
-            // Validate coordinates
-            if (!longitude || !latitude) {
-                return res.status(400).json({ msg: 'Longitude and latitude are required' });
             }
 
             // Hash the password
             const hashedPassword = await bcrypt.hash(password, 10);
 
-            // Create new mechanic
+            // Create new mechanic instance
             mechanic = new Mechanic({
                 username,
                 email,
@@ -63,21 +109,34 @@ router.post('/register',
                 phoneNumber,
                 address,
                 vehicleType,
-                verificationCertificate: req.file.path,
+                verificationCertificate: req.file.path, // Save the path to the uploaded certificate
                 liveLocation: {
-                    type: 'Point',
-                    coordinates: [parseFloat(longitude), parseFloat(latitude)]
+                    type: "Point",
+                    coordinates: [0, 0] // Initialize with default coordinates
                 },
                 isApproved: false
             });
 
+            // Save mechanic to the database
             await mechanic.save();
 
             // Generate JWT token
-            const payload = { mechanic: { id: mechanic.id, role: 'mechanic' } };
-            const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
+            const payload = {
+                mechanic: {
+                    id: mechanic.id,
+                    role: 'mechanic'
+                }
+            };
 
-            res.json({ token, role: 'mechanic', mechanicId: mechanic.id });
+            jwt.sign(
+                payload,
+                process.env.JWT_SECRET,
+                { expiresIn: '1h' },
+                (err, token) => {
+                    if (err) throw err;
+                    res.json({ token, role: 'mechanic', mechanicId: mechanic.id });
+                }
+            );
         } catch (error) {
             console.error('Registration Error:', error);
             if (error.name === 'ValidationError') {
@@ -89,56 +148,59 @@ router.post('/register',
     }
 );
 
-// Login mechanic
+// POST /api/mechanic/login - Login Mechanic
 router.post('/login', async (req, res) => {
     const { email, password } = req.body;
 
-    if (!email || !password) {
-        return res.status(400).json({ msg: 'Email and password are required' });
-    }
-
     try {
+        // Attempt to find the mechanic by email
         let mechanic = await Mechanic.findOne({ email });
-
         if (!mechanic) {
-            console.log("Mechanic not found with email:", email);
+            console.log("Mechanic not found with email:", email); // Logging for debugging
             return res.status(400).json({ msg: 'Invalid Credentials' });
         }
 
-        // Ensure the mechanic is approved
+        // Check if the mechanic's account is approved
         if (!mechanic.isApproved) {
-            console.log("Mechanic account is not approved:", mechanic.email);
+            console.log("Mechanic account is not approved"); // Logging for debugging
             return res.status(403).json({ msg: 'Your account is not approved yet.' });
         }
 
-        // Password comparison
-        console.log("Password entered:", password);
-        console.log("Stored hashed password:", mechanic.password);
-
+        // Validate password
         const isMatch = await bcrypt.compare(password, mechanic.password);
-
         if (!isMatch) {
-            console.log("Password does not match for email:", email);
+            console.log("Password does not match"); // Logging for debugging
             return res.status(400).json({ msg: 'Invalid Credentials' });
         }
 
-        // Generate JWT token if password matches
-        const payload = { mechanic: { id: mechanic.id, role: 'mechanic' } };
-        const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
+        const payload = {
+            mechanic: {
+                id: mechanic.id,
+                role: 'mechanic',
+            },
+        };
 
-        console.log("Successfully logged in mechanic:", mechanic.email);
-        return res.status(200).json({ mechanicId: mechanic.id, token, role: 'mechanic' });
-
+        // Sign JWT token
+        jwt.sign(
+            payload,
+            process.env.JWT_SECRET,
+            { expiresIn: '1h' },
+            (err, token) => {
+                if (err) throw err;
+                res.json({ mechanicId: mechanic.id, token, role: 'mechanic' });
+            }
+        );
     } catch (err) {
         console.error('Error during login:', err);
-        res.status(500).json({ msg: 'Server error' });
+        res.status(500).send('Server error');
     }
 });
 
-// Get all mechanics
+
+// Get all users (mechanics)
 router.get('/mechanics', async (req, res) => {
     try {
-        const users = await Mechanic.find();
+        const users = await Mechanic.find(); // Use the Mechanic model or User model as appropriate
         res.status(200).json(users);
     } catch (error) {
         console.error('Error fetching users:', error);
@@ -149,11 +211,13 @@ router.get('/mechanics', async (req, res) => {
 
 // Get mechanic by ID
 router.get('/mechanics/:id', async (req, res) => {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-        return res.status(400).json({ msg: 'Invalid user ID format' });
-    }
-
     try {
+        // Validate ObjectId format
+        if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+            return res.status(400).json({ msg: 'Invalid user ID format' });
+        }
+
+        // Fetch mechanic by ID
         const mechanic = await Mechanic.findById(req.params.id);
         if (!mechanic) {
             return res.status(404).json({ msg: 'User not found' });
@@ -165,23 +229,66 @@ router.get('/mechanics/:id', async (req, res) => {
     }
 });
 
+// Update a mechanic by ID
+router.put('/mechanics/:id', async (req, res) => {
+    const { username, email, password, vehicleType } = req.body;
+    const updates = { username, email, password, vehicleType };
 
-// Update mechanic availability and location
+    try {
+        const mechanic = await Mechanic.findByIdAndUpdate(req.params.id, updates, { new: true, runValidators: true }); // Update and return the new document
+        if (!mechanic) {
+            return res.status(404).json({ msg: 'Mechanic not found' });
+        }
+        res.status(200).json(mechanic); // Return the updated mechanic data
+    } catch (error) {
+        console.error('Error updating mechanic:', error);
+        if (error.name === 'ValidationError') {
+            const errors = Object.values(error.errors).map(err => err.message);
+            return res.status(400).json({ errors });
+        }
+        res.status(500).json({ message: 'Error updating mechanic. Please try again.' });
+    }
+});
+
+// Block a mechanic by ID
+router.put('/mechanics/:id/block', async (req, res) => {
+    try {
+        const mechanic = await Mechanic.findByIdAndUpdate(req.params.id, { isBlocked: true }, { new: true }); // Update to block the mechanic
+        if (!mechanic) {
+            return res.status(404).json({ msg: 'Mechanic not found' });
+        }
+        res.status(200).json({ msg: 'Mechanic blocked successfully', mechanic });
+    } catch (error) {
+        console.error('Error blocking mechanic:', error);
+        res.status(500).json({ message: 'Error blocking mechanic. Please try again.' });
+    }
+});
+
+
 router.post('/update-availability', async (req, res) => {
     const { mechanicId, isAvailable, liveLocation } = req.body;
 
     try {
+        // Prepare the update data
         const updateData = { isAvailable };
 
-        if (isAvailable && liveLocation) {
-            updateData.liveLocation = {
-                type: "Point",
-                coordinates: liveLocation.coordinates
-            };
-        } else {
+        // Only update liveLocation if it is provided and isAvailable is true
+        if (isAvailable && liveLocation && Array.isArray(liveLocation.coordinates)) {
+            const [longitude, latitude] = liveLocation.coordinates;
+            if (typeof longitude === 'number' && typeof latitude === 'number') {
+                updateData.liveLocation = {
+                    type: "Point", // GeoJSON type
+                    coordinates: [longitude, latitude], // Ensure correct [longitude, latitude] format
+                };
+            } else {
+                return res.status(400).json({ message: 'Invalid live location coordinates' });
+            }
+        } else if (!isAvailable) {
+            // If the mechanic is not available, clear the liveLocation
             updateData.liveLocation = null;
         }
 
+        // Update mechanic's status and location
         const updatedMechanic = await Mechanic.findByIdAndUpdate(
             mechanicId,
             updateData,
@@ -195,9 +302,10 @@ router.post('/update-availability', async (req, res) => {
         res.json(updatedMechanic);
     } catch (error) {
         console.error('Error updating mechanic availability:', error);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ message: 'Server error', error });
     }
 });
+
 
 
 // Mechanic Profile
@@ -245,80 +353,116 @@ router.put('/accept/:serviceRequestId', async (req, res) => {
     }
 });
 
-// // Route to search mechanics by location and vehicle type
+
+// Check if latest request is accepted
+router.get('/service-requests', async (req, res) => {
+    try {
+        const serviceRequests = await serviceRequest.find();
+
+        if (serviceRequests.length > 0) {
+            const firstRequest = serviceRequests[serviceRequests.length - 1];
+            const isAccepted = firstRequest.status === 'accepted';
+            return res.json({ accepted: isAccepted });
+        } else {
+            return res.json({ accepted: false });
+        }
+    } catch (error) {
+        console.error('Error fetching service requests:', error.message);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+
+
+// // Mechanic search route
 // router.get('/search', async (req, res) => {
 //     const { lat, lng, vehicleType } = req.query;
 
 //     // Validate query parameters
 //     if (!lat || !lng || !vehicleType) {
-//         return res.status(400).json({ message: "Missing required query parameters: lat, lng, vehicleType." });
+//         return res.status(400).json({
+//             message: 'Latitude, longitude, and vehicle type are required.'
+//         });
 //     }
 
 //     try {
-//         const mechanics = await Mechanic.aggregate([
-//             {
-//                 $geoNear: {
-//                     near: { type: "Point", coordinates: [parseFloat(lng), parseFloat(lat)] },
-//                     distanceField: "distance",
-//                     maxDistance: 5000, // Adjust radius as needed
-//                     query: { vehicleType: vehicleType },
-//                     spherical: true
-//                 }
-//             }
-//         ]);
+//         // Define search parameters
+//         const radiusInMeters = 5000; // 5 km radius
+//         const mechanics = await Mechanic.find({
+//             liveLocation: {
+//                 $near: {
+//                     $geometry: {
+//                         type: 'Point',
+//                         coordinates: [parseFloat(lng), parseFloat(lat)], // [longitude, latitude]
+//                     },
+//                     $maxDistance: radiusInMeters,
+//                 },
+//             },
+//             vehicleType: vehicleType, // Match vehicle type
+//             isAvailable: true, // Filter by availability
+//         });
 
-//         if (mechanics.length === 0) {
-//             return res.status(404).json({ message: "No mechanics found nearby." });
-//         }
-
+//         // Return results
 //         res.status(200).json({ mechanics });
 //     } catch (error) {
-//         console.error("Error fetching mechanics:", error);
-//         res.status(500).json({ message: "Error fetching mechanics. Please try again later." });
+//         console.error('Error searching mechanics:', error);
+//         res.status(500).json({
+//             message: 'Server error while searching mechanics',
+//             error: error.message,
+//         });
 //     }
 // });
 
-
-
-// Search mechanics within a radius (in meters)
 router.get('/search', async (req, res) => {
-    const { lat, lng, vehicleType } = req.query;  // Get latitude, longitude, and vehicleType from query params
-    const radius = 5000000;  // 5000 km in meters
-  
-    try {
-      // Validate lat, lng, and vehicleType
-      if (!lat || !lng || !vehicleType) {
-        return res.status(400).json({ message: 'Missing required fields' });
-      }
-  
-      // Find mechanics within the radius using $geoNear
-      const mechanics = await Mechanic.aggregate([
-        {
-          $geoNear: {
-            near: { type: "Point", coordinates: [parseFloat(lng), parseFloat(lat)] },
-            distanceField: "distance",  // Adds the calculated distance to each mechanic
-            maxDistance: radius,        // Filter mechanics within the radius
-            spherical: true,            // Use spherical Earth model
-          },
-        },
-        {
-          $match: { vehicleType: vehicleType }  // Optional: Filter by vehicle type
-        },
-        {
-          $project: {
-            name: 1,
-            location: 1,
-            distance: 1  // Include distance in the result
-          }
-        }
-      ]);
-  
-      // Return the list of mechanics
-      return res.json({ mechanics });
-    } catch (error) {
-      console.error('Error fetching mechanics:', error);
-      return res.status(500).json({ message: 'Server error' });
-    }
-  });
+    const { lat, lng, vehicleType } = req.query;
 
-module.exports = router;
+    if (!lat || !lng || !vehicleType) {
+        return res.status(400).json({ message: "Missing required query parameters: lat, lng, vehicleType." });
+    }
+
+    try {
+        // Ensure coordinates are parsed as floats
+        const latFloat = parseFloat(lat);
+        const lngFloat = parseFloat(lng);
+
+        if (isNaN(latFloat) || isNaN(lngFloat)) {
+            return res.status(400).json({ message: "Invalid latitude or longitude." });
+        }
+
+        const mechanics = await Mechanic.aggregate([
+            {
+                $geoNear: {
+                    near: { type: "Point", coordinates: [lngFloat, latFloat] },  // Correcting coordinates order
+                    distanceField: "distance",
+                    maxDistance: 5000,  // Distance in meters
+                    query: { vehicleType: vehicleType },
+                    spherical: true
+                }
+            }
+        ]);
+
+        // Return mechanics found
+        res.json({ mechanics });
+    } catch (error) {
+        console.error("Error fetching mechanics:", error);
+        res.status(500).json({ message: "Error fetching mechanics." });
+    }
+});
+
+// Backend route to fetch live locations of available mechanics
+router.get('/live-locations', async (req, res) => {
+    try {
+        const mechanics = await Mechanic.find({
+            isAvailable: true,
+            liveLocation: { $ne: null } // Ensure liveLocation is not null
+        }).select('username vehicleType isAvailable liveLocation');
+
+        res.json({ mechanics });
+    } catch (error) {
+        console.error('Error fetching live locations:', error);
+        res.status(500).json({ message: 'Failed to fetch mechanics live locations' });
+    }
+});
+
+  
+  module.exports = router;  

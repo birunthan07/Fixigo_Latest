@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
@@ -116,12 +117,7 @@ export default function UserDashboard() {
         throw new Error(`Error fetching mechanics: ${errorData.message || response.statusText}`);
       }
       const data = await response.json();
-      console.log("Mechanics Data:", data); // Debugging line to check returned data
-      if (data && data.mechanics) {
-        setSuggestions(data.mechanics);
-      } else {
-        setErrorMessage('No mechanics found.');
-      }
+      setSuggestions(data.mechanics);
     } catch (error) {
       setErrorMessage(error.message || 'Failed to search for mechanics.');
     } finally {
@@ -135,90 +131,148 @@ export default function UserDashboard() {
     }
   }, [locationCoords]);
 
+  const styles = {
+    container: {
+      maxWidth: '1200px',
+      margin: '0 auto',
+      padding: '20px',
+      fontFamily: 'Arial, sans-serif',
+      backgroundColor: '#f0f4f8',
+      borderRadius: '10px',
+      boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+    },
+    header: {
+      fontSize: '2.5rem',
+      color: '#2c3e50',
+      textAlign: 'center',
+      marginBottom: '30px',
+    },
+    searchSection: {
+      backgroundColor: 'white',
+      padding: '20px',
+      borderRadius: '8px',
+      marginBottom: '20px',
+      boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+    },
+    label: {
+      display: 'block',
+      marginBottom: '10px',
+      color: '#34495e',
+      fontWeight: 'bold',
+    },
+    select: {
+      width: '100%',
+      padding: '10px',
+      marginBottom: '15px',
+      borderRadius: '5px',
+      border: '1px solid #bdc3c7',
+      fontSize: '16px',
+    },
+    button: {
+      backgroundColor: '#3498db',
+      color: 'white',
+      border: 'none',
+      padding: '12px 20px',
+      borderRadius: '5px',
+      fontSize: '16px',
+      cursor: 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      transition: 'background-color 0.3s ease',
+    },
+    mapContainer: {
+      height: '400px',
+      width: '100%',
+      borderRadius: '8px',
+      overflow: 'hidden',
+      boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+    },
+    mechanicCard: {
+      padding: '20px',
+      marginTop: '20px',
+      backgroundColor: '#fff',
+      borderRadius: '8px',
+      boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+    },
+    mechanicCardHeader: {
+      fontSize: '1.5rem',
+      marginBottom: '10px',
+    },
+    mechanicCardDetails: {
+      fontSize: '1.2rem',
+      color: '#34495e',
+    },
+  };
+
   const selectMechanic = (mechanic) => {
     setSelectedMechanic(mechanic);
   };
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '20px' }}>
-      <h1>User Dashboard</h1>
-      <div style={{ marginBottom: '20px' }}>
-        <label>
+    <div style={styles.container}>
+      <h1 style={styles.header}>User Dashboard</h1>
+      <div style={styles.searchSection}>
+        <label style={styles.label}>
           <FaMapMarkerAlt /> Location: {location || 'Fetching your location...'}
         </label>
         {errorMessage && <p style={{ color: '#e74c3c' }}>{errorMessage}</p>}
-        <div>
-          <label>
-            Vehicle Type:
-            <select 
-              value={vehicleType} 
-              onChange={(e) => setVehicleType(e.target.value)}
-            >
-              <option value="Car">Car</option>
-              <option value="Motorbike">Motorbike</option>
-              <option value="Truck">Truck</option>
-              <option value="other">Other</option>
-            </select>
-          </label>
-        </div>
+        <label style={styles.label}>
+          Vehicle Type:
+          <select 
+            value={vehicleType} 
+            onChange={(e) => setVehicleType(e.target.value)}
+            style={styles.select}
+          >
+            <option value="Car">Car</option>
+            <option value="Motorbike">Motorbike</option>
+            <option value="Truck">Truck</option>
+            <option value="other">other</option>
+          </select>
+        </label>
         <button 
           onClick={handleSearchMechanics} 
           disabled={!locationCoords}
+          style={styles.button}
         >
-          {loadingSuggestions ? <FaSpinner className="spinner" /> : <FaSearch />}
+          {loadingSuggestions ? <FaSpinner className="spinner" /> : <FaSearch />} 
           Search Nearby Mechanics
         </button>
       </div>
 
-      <MapContainer center={mapCenter} zoom={14} style={{ height: '400px', width: '100%' }}>
-        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-        
-        {userLocationMarker && (
-          <Marker position={userLocationMarker}>
-            <Popup>You are here</Popup>
-          </Marker>
-        )}
-
-        {/* Display mechanic markers on the map */}
-        {suggestions.map((mechanic, index) => {
-          if (mechanic.location && mechanic.location.coordinates) {
-            const [longitude, latitude] = mechanic.location.coordinates;
-            return (
-              <Marker 
-                key={index} 
-                position={[latitude, longitude]}
-                onClick={() => selectMechanic(mechanic)} // Select mechanic on click
-              >
-                <Popup>
-                  <div>
-                    <h4>{mechanic.name}</h4>
-                    <p>{mechanic.description}</p>
-                  </div>
-                </Popup>
-              </Marker>
-            );
-          }
-          return null; // Skip mechanics without coordinates
-        })}
-      </MapContainer>
+      <div style={styles.mapContainer}>
+        <MapContainer center={mapCenter} zoom={14} style={{ height: '100%', width: '100%' }}>
+          <TileLayer
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          />
+          {userLocationMarker && (
+            <Marker position={userLocationMarker}>
+              <Popup>Your Location</Popup>
+            </Marker>
+          )}
+          {suggestions.map((mechanic) => (
+            <Marker 
+              key={mechanic._id} 
+              position={[mechanic.location.coordinates[1], mechanic.location.coordinates[0]]}
+              onClick={() => selectMechanic(mechanic)}
+            >
+              <Popup>{mechanic.name}</Popup>
+            </Marker>
+          ))}
+        </MapContainer>
+      </div>
 
       {selectedMechanic && (
-        <div>
-          <h2>Mechanic Details</h2>
-          <p>Name: {selectedMechanic.name}</p>
-          <p>Vehicle Type: {selectedMechanic.vehicleType}</p>
-          <p>Phone: {selectedMechanic.phone}</p>
-          <p>Address: {selectedMechanic.address}</p>
+        <div style={styles.mechanicCard}>
+          <h3 style={styles.mechanicCardHeader}>{selectedMechanic.name}</h3>
+          <p style={styles.mechanicCardDetails}>Phone: {selectedMechanic.phoneNumber}</p>
+          <p style={styles.mechanicCardDetails}>Service Type: {selectedMechanic.serviceType}</p>
         </div>
       )}
     </div>
   );
 }
-
-
-
-
-
 
 
 
@@ -245,6 +299,7 @@ export default function UserDashboard() {
 //   const [userLocationMarker, setUserLocationMarker] = useState(null);
 //   const [mapCenter, setMapCenter] = useState([9.6615, 80.0255]);
 //   const [suggestions, setSuggestions] = useState([]);
+//   const [mechanics, setMechanics] = useState([]); // Mechanics live locations
 //   const [vehicleType, setVehicleType] = useState('Car');
 //   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
 //   const [errorMessage, setErrorMessage] = useState('');
@@ -267,10 +322,6 @@ export default function UserDashboard() {
 //     try {
 //       const response = await fetch(url, requestOptions);
 //       if (!response.ok) {
-//         const errorText = await response.text();
-//         if (response.status === 403) {
-//           throw new Error("Access forbidden. Check API key or RapidAPI subscription.");
-//         }
 //         throw new Error(`Error geocoding location: ${response.statusText}`);
 //       }
 //       const result = await response.json();
@@ -283,6 +334,16 @@ export default function UserDashboard() {
 //       setErrorMessage(error.message);
 //     }
 //   }, [requestOptions]);
+
+//   const fetchMechanics = useCallback(async () => {
+//     try {
+//       const response = await axios.get('http://localhost:5000/api/mechanic/live-locations'); // Update to match your backend route
+//       setMechanics(response.data.mechanics || []);
+//     } catch (error) {
+//       console.error('Error fetching mechanics live locations:', error);
+//       setErrorMessage('Failed to fetch mechanics data.');
+//     }
+//   }, []);
 
 //   useEffect(() => {
 //     if (navigator.geolocation) {
@@ -303,6 +364,7 @@ export default function UserDashboard() {
 //                 { headers: { Authorization: `Bearer ${token}` } }
 //               );
 //             }
+//             fetchMechanics(); // Fetch mechanics once location is updated
 //           } catch (error) {
 //             console.error('Error updating live location:', error);
 //           }
@@ -312,7 +374,7 @@ export default function UserDashboard() {
 //         }
 //       );
 //     }
-//   }, [geocode]);
+//   }, [geocode, fetchMechanics]);
 
 //   const handleSearchMechanics = async () => {
 //     if (!locationCoords) {
@@ -356,77 +418,7 @@ export default function UserDashboard() {
 //   }, [locationCoords]);
 
 //   const styles = {
-//     container: {
-//       maxWidth: '1200px',
-//       margin: '0 auto',
-//       padding: '20px',
-//       fontFamily: 'Arial, sans-serif',
-//       backgroundColor: '#f0f4f8',
-//       borderRadius: '10px',
-//       boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-//     },
-//     header: {
-//       fontSize: '2.5rem',
-//       color: '#2c3e50',
-//       textAlign: 'center',
-//       marginBottom: '30px',
-//     },
-//     searchSection: {
-//       backgroundColor: 'white',
-//       padding: '20px',
-//       borderRadius: '8px',
-//       marginBottom: '20px',
-//       boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-//     },
-//     label: {
-//       display: 'block',
-//       marginBottom: '10px',
-//       color: '#34495e',
-//       fontWeight: 'bold',
-//     },
-//     select: {
-//       width: '100%',
-//       padding: '10px',
-//       marginBottom: '15px',
-//       borderRadius: '5px',
-//       border: '1px solid #bdc3c7',
-//       fontSize: '16px',
-//     },
-//     button: {
-//       backgroundColor: '#3498db',
-//       color: 'white',
-//       border: 'none',
-//       padding: '12px 20px',
-//       borderRadius: '5px',
-//       fontSize: '16px',
-//       cursor: 'pointer',
-//       display: 'flex',
-//       alignItems: 'center',
-//       justifyContent: 'center',
-//       transition: 'background-color 0.3s ease',
-//     },
-//     mapContainer: {
-//       height: '400px',
-//       width: '100%',
-//       borderRadius: '8px',
-//       overflow: 'hidden',
-//       boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-//     },
-//     mechanicCard: {
-//       padding: '20px',
-//       marginTop: '20px',
-//       backgroundColor: '#fff',
-//       borderRadius: '8px',
-//       boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-//     },
-//     mechanicCardHeader: {
-//       fontSize: '1.5rem',
-//       marginBottom: '10px',
-//     },
-//     mechanicCardDetails: {
-//       fontSize: '1.2rem',
-//       color: '#34495e',
-//     },
+//     // Same styles as provided
 //   };
 
 //   const selectMechanic = (mechanic) => {
@@ -475,13 +467,13 @@ export default function UserDashboard() {
 //               <Popup>Your Location</Popup>
 //             </Marker>
 //           )}
-//           {suggestions.map((mechanic) => (
+//           {mechanics.map((mechanic) => (
 //             <Marker 
 //               key={mechanic._id} 
-//               position={[mechanic.location.coordinates[1], mechanic.location.coordinates[0]]}
+//               position={[mechanic.liveLocation.coordinates[1], mechanic.liveLocation.coordinates[0]]}
 //               onClick={() => selectMechanic(mechanic)}
 //             >
-//               <Popup>{mechanic.name}</Popup>
+//               <Popup>{mechanic.username} - {mechanic.vehicleType}</Popup>
 //             </Marker>
 //           ))}
 //         </MapContainer>
