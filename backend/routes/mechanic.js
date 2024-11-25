@@ -9,40 +9,124 @@ const bcrypt = require('bcryptjs');
 const Mechanic = require('../models/ mechanicmodel'); // Updated to use the Mechanic model
 const authMiddleware = require('../middleware/authMiddleware');
 const mongoose = require('mongoose');
+const Notification = require('../models/Notification');
+const Request = require('../models/MechanicRequestmodel');
+const authenticate = require('../middleware/authMiddleware');
 
-router.post('/service-requests/:token', async (req, res) => {
-    const { token } = req.params;
 
+// Mechanic requests route
+router.get('/mechanic-requests', authenticate, async (req, res) => {
+    const mechanicEmail = req.user.email; // Assuming the mechanic's email is available after authentication
+  
     try {
-        // Verify the token and get mechanic ID
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const mechanicId = decoded.mechanic.id;
-        console.log(mechanicId);
-
-        const mechanic = await Mechanic.findById(mechanicId);
-        if (!mechanic) {
-            return res.status(404).json({ message: 'Mechanic not found' });
-        }
-
-        const { specialization, location: liveLocation } = mechanic;
-
-        console.log('Mechanic Location:', liveLocation.coordinates);
-
-        // Fetch all service requests that match the mechanic's specialization
-        const serviceRequests = await ServiceRequest.find({
-            specialization: specialization.toLowerCase(),
-            status: 'pending'
-        });
-
-        res.json({ nearbyRequest: serviceRequests[serviceRequests.length - 1] });
-        
+      // Find all requests for this mechanic
+      const requests = await Request.find({ mechanicEmail }).sort({ createdAt: -1 });
+  
+      if (!requests.length) {
+        return res.status(404).json({ message: 'No requests found for this mechanic.' });
+      }
+  
+      // Populate user details for each request
+      const populatedRequests = await Promise.all(
+        requests.map(async (request) => {
+          const user = await User.findById(request.userId).select('username email phone address');
+          return {
+            ...request.toObject(),
+            user,
+          };
+        })
+      );
+  
+      res.status(200).json({ requests: populatedRequests });
     } catch (error) {
-        console.error('Error fetching service requests:', error);
-        res.status(500).json({ message: 'Failed to fetch service requests' });
+      console.error('Error fetching mechanic requests:', error);
+      res.status(500).json({ error: 'Failed to fetch mechanic requests', message: error.message });
     }
-});
+  });
+  
 
+// Send a request from user to mechanic
+router.post('/send-request', authenticate, async (req, res) => {
+    const { userId, mechanicEmail } = req.body;
+  
+    try {
+      const newRequest = new Request({ userId, mechanicEmail });
+      await newRequest.save();
+  
+      // Add a notification for the mechanic
+      const notification = new Notification({
+        receiverEmail: mechanicEmail,
+        message: `You have a new request from a user.`,
+      });
+      await notification.save();
+  
+      res.status(201).json({ message: 'Request sent successfully.' });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Failed to send request.' });
+    }
+  });
+  
+  // Mechanic accepts or rejects the request
+  router.patch('/update-request', authenticate, async (req, res) => {
+    const { requestId, status } = req.body;
+  
+    try {
+      const request = await Request.findById(requestId);
+      if (!request) {
+        return res.status(404).json({ message: 'Request not found.' });
+      }
+  
+      request.status = status;
+      await request.save();
+  
+      // Notify the user about the mechanic's response
+      const notification = new Notification({
+        receiverEmail: request.userId, // Assuming user's email can be derived from userId
+        message: `Your request was ${status.toLowerCase()} by the mechanic.`,
+      });
+      await notification.save();
+  
+      res.status(200).json({ message: `Request ${status.toLowerCase()} successfully.` });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Failed to update request.' });
+    }
+  });
+  
 
+  router.get('/user-requests', authenticate, async (req, res) => {
+    const userId = req.user.id; // Assuming `req.user.id` is set after successful authentication
+  
+    try {
+      // Fetch the requests for the logged-in user
+      const requests = await Request.find({ userId })
+        .sort({ createdAt: -1 }); // Sort by createdAt in descending order
+  
+      // Check if the user has any requests
+      if (!requests.length) {
+        return res.status(404).json({ message: 'No requests found for the user.' });
+      }
+  
+      // Populate mechanic details based on mechanicEmail
+      const populatedRequests = await Promise.all(
+        requests.map(async (request) => {
+          const mechanic = await Mechanic.findOne({ email: request.mechanicEmail }).select('username email');
+          return {
+            ...request.toObject(),
+            mechanic,
+          };
+        })
+      );
+  
+      // Return the requests with mechanic details
+      res.status(200).json({ requests: populatedRequests });
+    } catch (error) {
+      console.error('Error fetching requests:', error);
+      res.status(500).json({ error: 'Failed to fetch requests', message: error.message });
+    }
+  });
+  
 // Find user
 router.get('/user/:userId', async (req, res) => {
     try {
@@ -166,13 +250,7 @@ router.post('/login', async (req, res) => {
             return res.status(403).json({ msg: 'Your account is not approved yet.' });
         }
 
-        // Validate password
-        const isMatch = await bcrypt.compare(password, mechanic.password);
-        if (!isMatch) {
-            console.log("Password does not match"); // Logging for debugging
-            return res.status(400).json({ msg: 'Invalid Credentials' });
-        }
-
+        
         const payload = {
             mechanic: {
                 id: mechanic.id,
@@ -354,70 +432,8 @@ router.put('/accept/:serviceRequestId', async (req, res) => {
 });
 
 
-// Check if latest request is accepted
-router.get('/service-requests', async (req, res) => {
-    try {
-        const serviceRequests = await serviceRequest.find();
 
-        if (serviceRequests.length > 0) {
-            const firstRequest = serviceRequests[serviceRequests.length - 1];
-            const isAccepted = firstRequest.status === 'accepted';
-            return res.json({ accepted: isAccepted });
-        } else {
-            return res.json({ accepted: false });
-        }
-    } catch (error) {
-        console.error('Error fetching service requests:', error.message);
-        res.status(500).json({ message: 'Server error' });
-    }
-});
-
-// router.get('/search', async (req, res) => {
-//     const { lat, lng, vehicleType } = req.query;
-
-//     console.log("Query Params:", { lat, lng, vehicleType });
-
-//     if (!lat || !lng || !vehicleType) {
-//         return res.status(400).json({ message: "Missing required query parameters: lat, lng, vehicleType." });
-//     }
-
-//     try {
-//         const latFloat = parseFloat(lat);
-//         const lngFloat = parseFloat(lng);
-
-//         if (isNaN(latFloat) || isNaN(lngFloat)) {
-//             return res.status(400).json({ message: "Invalid latitude or longitude." });
-//         }
-
-//         const mechanics = await Mechanic.aggregate([
-//             {
-//                 $geoNear: {
-//                     near: { type: "Point", coordinates: [lngFloat, latFloat] },
-//                     distanceField: "distance",
-//                     maxDistance: 5000,  // adjust this distance as needed
-//                     query: { vehicleType: vehicleType },
-//                     spherical: true
-//                 }
-//             },
-//             {
-//                 $project: {  // Specify the fields you want to return
-//                     username: 1,
-//                     vehicleType: 1,
-//                     liveLocation: 1,
-//                     distance: 1,  // Optional: include the distance from the search location
-//                     _id: 0  // Exclude _id if you don't need it in the response
-//                 }
-//             }
-//         ]);
-
-//         console.log("Fetched Mechanics:", mechanics);
-
-//         res.json({ mechanics });
-//     } catch (error) {
-//         console.error("Error fetching mechanics:", error);
-//         res.status(500).json({ message: "Error fetching mechanics." });
-//     }
-// });
+// router search mechanics 
 router.get('/search', async (req, res) => {
     const { lat, lng, vehicleType } = req.query;
 

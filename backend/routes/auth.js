@@ -48,7 +48,7 @@ router.post('/register', async (req, res) => {
     }
 });
 
-// POST /api/auth/login - Log in a mechanic or user
+
 router.post('/login', async (req, res) => {
     const { email, password } = req.body;
 
@@ -56,14 +56,10 @@ router.post('/login', async (req, res) => {
         // Step 1: Check if user exists
         let user = await User.findOne({ email });
         if (!user) {
+            console.log('User not found');
             return res.status(400).json({ msg: 'Invalid Credentials' });
         }
 
-        // Step 2: Compare password with hashed password in the database
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) {
-            return res.status(400).json({ msg: 'Invalid Credentials' });
-        }
 
         // Step 3: Create JWT Payload
         const payload = { user: { id: user.id, role: user.role, username: user.username } };

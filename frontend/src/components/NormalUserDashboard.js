@@ -5,6 +5,8 @@ import config from '../config';
 import 'leaflet/dist/leaflet.css';
 import { FaMapMarkerAlt, FaCar, FaMotorcycle, FaTruck, FaSearch, FaSpinner } from 'react-icons/fa';
 import axios from 'axios';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 // Fix for default marker icon issue with Leaflet and Webpack
 delete L.Icon.Default.prototype._getIconUrl;
@@ -124,6 +126,41 @@ export default function UserDashboard() {
     }
   };
 
+  const handleSendRequest = async (mechanic) => {
+    try {
+      console.log("Initiating request for mechanic:", mechanic); // Debug log for mechanic details
+  
+      const token = localStorage.getItem('token');
+      const userId = localStorage.getItem('userId');
+  
+      if (!token || !userId) {
+        console.log("Authentication error: Missing token or userId"); // Debug log for authentication failure
+        toast.error('User not authenticated.');
+        return;
+      }
+  
+      console.log("Token and userId retrieved:", { token, userId }); // Debug log for retrieved token and userId
+  
+      const response = await axios.post(
+        'http://localhost:5000/api/mechanic/send-request',
+        { userId, mechanicEmail: mechanic.email },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+  
+      console.log("Response from server:", response); // Debug log for server response
+  
+      if (response.status === 201) {
+        toast.success('Request sent successfully!');
+      }
+    } catch (error) {
+      console.error('Error sending request:', error); // Log the error details
+      if (error.response) {
+        console.error('Error response data:', error.response.data); // Log server response errors
+      }
+      toast.error('Failed to send request. Please try again.');
+    }
+  };
+
   useEffect(() => {
     if (locationCoords) {
       setMapCenter(locationCoords);
@@ -205,6 +242,7 @@ export default function UserDashboard() {
   };
 
   const selectMechanic = (mechanic) => {
+    handleSendRequest(mechanic);
     setSelectedMechanic(mechanic);
   };
 
@@ -245,15 +283,20 @@ export default function UserDashboard() {
             <strong>Email:</strong> {mechanic.email}
           </p>
           <p style={styles.mechanicCardDetails}>
-            <strong>Location:</strong>
-            {mechanic.liveLocation ? `Lat: ${mechanic.liveLocation.coordinates[1]}, Lng: ${mechanic.liveLocation.coordinates[0]}` : 'Not available'}
-          </p>
-          <p style={styles.mechanicCardDetails}>
             <strong>Verification Certificate:</strong> <a href={mechanic.verificationCertificate} target="_blank" rel="noopener noreferrer">View Certificate</a>
           </p>
-          <p style={styles.mechanicCardDetails}>
-            <strong>Available:</strong> {mechanic.isAvailable ? 'Yes' : 'No'}
-          </p>
+          {/* Added Select button */}
+          <button
+            onClick={(e) => {
+              console.log("Select button clicked for mechanic:", mechanic); // Debug log for button click
+              e.stopPropagation(); // Prevent event bubbling
+              handleSendRequest(mechanic); // Call the request function
+            }}
+            style={styles.button}
+          >
+            Select
+          </button>
+
         </div>
       ))}
 
@@ -270,9 +313,9 @@ export default function UserDashboard() {
           )
         ))}
       </MapContainer>
-
     </div>
   );
+
 }
 
 
@@ -281,217 +324,3 @@ export default function UserDashboard() {
 
 
 
-
-
-// import React, { useState, useEffect, useCallback, useMemo } from 'react';
-// import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-// import L from 'leaflet';
-// import config from '../config';
-// import 'leaflet/dist/leaflet.css';
-// import { FaMapMarkerAlt, FaCar, FaMotorcycle, FaTruck, FaSearch, FaSpinner } from 'react-icons/fa';
-// import axios from 'axios';
-
-// // Fix for default marker icon issue with Leaflet and Webpack
-// delete L.Icon.Default.prototype._getIconUrl;
-// L.Icon.Default.mergeOptions({
-//   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-//   iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-//   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-// });
-
-// export default function UserDashboard() {
-//   const [location, setLocation] = useState('');
-//   const [locationCoords, setLocationCoords] = useState(null);
-//   const [userLocationMarker, setUserLocationMarker] = useState(null);
-//   const [mapCenter, setMapCenter] = useState([9.6615, 80.0255]);
-//   const [suggestions, setSuggestions] = useState([]);
-//   const [mechanics, setMechanics] = useState([]); // Mechanics live locations
-//   const [vehicleType, setVehicleType] = useState('Car');
-//   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
-//   const [errorMessage, setErrorMessage] = useState('');
-//   const [selectedMechanic, setSelectedMechanic] = useState(null); // State to track selected mechanic
-
-//   const rapidApiKey = config.RAPIDAPI_KEY;
-
-//   const requestOptions = useMemo(() => ({
-//     method: 'GET',
-//     headers: new Headers({
-//       'x-rapidapi-key': rapidApiKey,
-//       'x-rapidapi-host': 'google-map-places.p.rapidapi.com',
-//       'Accept': 'application/json',
-//     }),
-//     redirect: 'follow',
-//   }), [rapidApiKey]);
-
-//   const geocode = useCallback(async (latlng) => {
-//     const url = `https://google-map-places.p.rapidapi.com/maps/api/geocode/json?latlng=${latlng[0]},${latlng[1]}&language=en&region=en`;
-//     try {
-//       const response = await fetch(url, requestOptions);
-//       if (!response.ok) {
-//         throw new Error(`Error geocoding location: ${response.statusText}`);
-//       }
-//       const result = await response.json();
-//       if (result?.results?.length > 0) {
-//         setLocation(result.results[0].formatted_address);
-//       } else {
-//         setErrorMessage("No results found for the location.");
-//       }
-//     } catch (error) {
-//       setErrorMessage(error.message);
-//     }
-//   }, [requestOptions]);
-
-//   const fetchMechanics = useCallback(async () => {
-//     try {
-//       const response = await axios.get('http://localhost:5000/api/mechanic/live-locations'); // Update to match your backend route
-//       setMechanics(response.data.mechanics || []);
-//     } catch (error) {
-//       console.error('Error fetching mechanics live locations:', error);
-//       setErrorMessage('Failed to fetch mechanics data.');
-//     }
-//   }, []);
-
-//   useEffect(() => {
-//     if (navigator.geolocation) {
-//       navigator.geolocation.getCurrentPosition(
-//         async (position) => {
-//           const { latitude, longitude } = position.coords;
-//           setUserLocationMarker([latitude, longitude]);
-//           const latlng = [latitude, longitude];
-//           setLocationCoords(latlng);
-//           geocode(latlng);
-//           try {
-//             const token = localStorage.getItem('token');
-//             const userId = localStorage.getItem('userId');
-//             if (token && userId) {
-//               await axios.post(
-//                 'http://localhost:5000/api/auth/update-location',
-//                 { userId, latitude, longitude },
-//                 { headers: { Authorization: `Bearer ${token}` } }
-//               );
-//             }
-//             fetchMechanics(); // Fetch mechanics once location is updated
-//           } catch (error) {
-//             console.error('Error updating live location:', error);
-//           }
-//         },
-//         (error) => {
-//           setLocation('Unable to fetch location.');
-//         }
-//       );
-//     }
-//   }, [geocode, fetchMechanics]);
-
-//   const handleSearchMechanics = async () => {
-//     if (!locationCoords) {
-//       setErrorMessage('Please allow location access to search for nearby mechanics.');
-//       return;
-//     }
-//     if (!vehicleType) {
-//       setErrorMessage('Please select a vehicle type.');
-//       return;
-//     }
-//     setLoadingSuggestions(true);
-//     setErrorMessage('');
-//     try {
-//       const mechanicsApiUrl = `http://localhost:5000/api/mechanic/search`;
-//       const response = await fetch(
-//         `${mechanicsApiUrl}?lat=${encodeURIComponent(locationCoords[0])}&lng=${encodeURIComponent(locationCoords[1])}&vehicleType=${encodeURIComponent(vehicleType)}`,
-//         {
-//           method: 'GET',
-//           headers: {
-//             'Authorization': `Bearer ${localStorage.getItem('token')}`,
-//           },
-//         }
-//       );
-//       if (!response.ok) {
-//         const errorData = await response.json();
-//         throw new Error(`Error fetching mechanics: ${errorData.message || response.statusText}`);
-//       }
-//       const data = await response.json();
-//       setSuggestions(data.mechanics);
-//     } catch (error) {
-//       setErrorMessage(error.message || 'Failed to search for mechanics.');
-//     } finally {
-//       setLoadingSuggestions(false);
-//     }
-//   };
-
-//   useEffect(() => {
-//     if (locationCoords) {
-//       setMapCenter(locationCoords);
-//     }
-//   }, [locationCoords]);
-
-//   const styles = {
-//     // Same styles as provided
-//   };
-
-//   const selectMechanic = (mechanic) => {
-//     setSelectedMechanic(mechanic);
-//   };
-
-//   return (
-//     <div style={styles.container}>
-//       <h1 style={styles.header}>User Dashboard</h1>
-//       <div style={styles.searchSection}>
-//         <label style={styles.label}>
-//           <FaMapMarkerAlt /> Location: {location || 'Fetching your location...'}
-//         </label>
-//         {errorMessage && <p style={{ color: '#e74c3c' }}>{errorMessage}</p>}
-//         <label style={styles.label}>
-//           Vehicle Type:
-//           <select 
-//             value={vehicleType} 
-//             onChange={(e) => setVehicleType(e.target.value)}
-//             style={styles.select}
-//           >
-//             <option value="Car">Car</option>
-//             <option value="Motorbike">Motorbike</option>
-//             <option value="Truck">Truck</option>
-//             <option value="other">other</option>
-//           </select>
-//         </label>
-//         <button 
-//           onClick={handleSearchMechanics} 
-//           disabled={!locationCoords}
-//           style={styles.button}
-//         >
-//           {loadingSuggestions ? <FaSpinner className="spinner" /> : <FaSearch />} 
-//           Search Nearby Mechanics
-//         </button>
-//       </div>
-
-//       <div style={styles.mapContainer}>
-//         <MapContainer center={mapCenter} zoom={14} style={{ height: '100%', width: '100%' }}>
-//           <TileLayer
-//             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-//             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-//           />
-//           {userLocationMarker && (
-//             <Marker position={userLocationMarker}>
-//               <Popup>Your Location</Popup>
-//             </Marker>
-//           )}
-//           {mechanics.map((mechanic) => (
-//             <Marker 
-//               key={mechanic._id} 
-//               position={[mechanic.liveLocation.coordinates[1], mechanic.liveLocation.coordinates[0]]}
-//               onClick={() => selectMechanic(mechanic)}
-//             >
-//               <Popup>{mechanic.username} - {mechanic.vehicleType}</Popup>
-//             </Marker>
-//           ))}
-//         </MapContainer>
-//       </div>
-
-//       {selectedMechanic && (
-//         <div style={styles.mechanicCard}>
-//           <h3 style={styles.mechanicCardHeader}>{selectedMechanic.name}</h3>
-//           <p style={styles.mechanicCardDetails}>Phone: {selectedMechanic.phoneNumber}</p>
-//           <p style={styles.mechanicCardDetails}>Service Type: {selectedMechanic.serviceType}</p>
-//         </div>
-//       )}
-//     </div>
-//   );
-// }
